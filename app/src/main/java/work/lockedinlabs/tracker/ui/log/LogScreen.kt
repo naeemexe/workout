@@ -58,7 +58,6 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -87,6 +86,7 @@ import androidx.compose.ui.focus.FocusManager
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -164,7 +164,7 @@ fun LogScreen(viewModel: LogViewModel, snackbar: SnackbarHostState, onOpenPlans:
     if (rest.running) {
         RestPanel(
             rest = rest,
-            nextSet = viewModel.restNextSet,
+            note = viewModel.restNote,
             modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
         )
     }
@@ -267,7 +267,7 @@ private fun ColumnScope.ExerciseLogger(viewModel: LogViewModel, focus: FocusMana
         }
 
         Spacer(Modifier.height(20.dp))
-        SetSelector(viewModel.slotCount, viewModel.sets, viewModel.selectedSet, viewModel::selectSet)
+        SetSelector(viewModel.sets, viewModel.selectedSet, viewModel::selectSet, viewModel::addSet)
         Spacer(Modifier.height(16.dp))
         val current = viewModel.current
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -365,7 +365,7 @@ private fun RestTimeMenu(selected: Int, onSelect: (Int) -> Unit) {
 
 /** Countdown pinned to the bottom of the Log page while resting. */
 @Composable
-private fun RestPanel(rest: RestTimer, nextSet: Int, modifier: Modifier) {
+private fun RestPanel(rest: RestTimer, note: String, modifier: Modifier) {
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -375,7 +375,7 @@ private fun RestPanel(rest: RestTimer, nextSet: Int, modifier: Modifier) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Resting · then set $nextSet", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (note.isEmpty()) "Resting" else "Resting · $note", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(clock(rest.remainingSeconds), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                 }
                 OutlinedButton(onClick = { rest.add(30) }) { Text("+30s") }
@@ -431,21 +431,36 @@ private fun PlanDayPicker(viewModel: LogViewModel, onOpenPlans: () -> Unit) {
     }
 }
 
+/** Selected look shared by Session chips, Exercise chips and set bubbles: light green fill with a green outline. */
+@Composable
+private fun selectedFill(selected: Boolean) = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+
+@Composable
+private fun selectedBorder(selected: Boolean, faded: Boolean = false) = BorderStroke(
+    if (selected) 1.5.dp else 1.dp,
+    when {
+        selected -> MaterialTheme.colorScheme.primary
+        faded -> MaterialTheme.colorScheme.outlineVariant
+        else -> MaterialTheme.colorScheme.outline
+    },
+)
+
 @Composable
 private fun DayChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(
-        selected = selected,
+    SuggestionChip(
         onClick = onClick,
         label = { Text(label) },
-        leadingIcon = if (selected) {
-            { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
-        } else null,
+        colors = SuggestionChipDefaults.suggestionChipColors(
+            containerColor = selectedFill(selected),
+            labelColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+        ),
+        border = selectedBorder(selected),
+        modifier = Modifier.semantics { if (selected) stateDescription = "Selected" },
     )
 }
 
 @Composable
 private fun ExerciseChipView(chip: ExerciseChip, onClick: () -> Unit) {
-    val primary = MaterialTheme.colorScheme.primary
     SuggestionChip(
         onClick = onClick,
         label = { Text(if (chip.custom) "Create “${chip.name}”" else chip.name) },
@@ -453,36 +468,37 @@ private fun ExerciseChipView(chip: ExerciseChip, onClick: () -> Unit) {
             { Icon(Icons.Filled.Check, contentDescription = "Done", modifier = Modifier.size(18.dp)) }
         } else null,
         colors = SuggestionChipDefaults.suggestionChipColors(
-            containerColor = if (chip.selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+            containerColor = selectedFill(chip.selected),
             labelColor = when {
                 chip.selected -> MaterialTheme.colorScheme.onPrimaryContainer
                 chip.done -> MaterialTheme.colorScheme.onSurfaceVariant
                 else -> MaterialTheme.colorScheme.onSurface
             },
-            iconContentColor = primary,
+            iconContentColor = MaterialTheme.colorScheme.primary,
         ),
-        border = BorderStroke(if (chip.selected) 1.5.dp else 1.dp, if (chip.selected) primary else MaterialTheme.colorScheme.outline),
+        border = selectedBorder(chip.selected),
     )
 }
 
-/** Sketch: "Sets  1 (2) 3 4 5" — started sets are bright, open ones grayed, the selected one circled. */
+/** "Sets  1 2 3 +": one bubble per set (as many as planned), + for another. Empty sets are faded. */
 @Composable
-private fun SetSelector(slots: Int, sets: List<SetInput>, selected: Int, onSelect: (Int) -> Unit) {
+private fun SetSelector(sets: List<SetInput>, selected: Int, onSelect: (Int) -> Unit, onAdd: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("Sets", style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(LABEL_WIDTH))
         Row(
             Modifier.weight(1f).horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            repeat(slots) { i ->
-                val filled = sets.getOrNull(i)?.isFilled == true
+            sets.forEachIndexed { i, set ->
+                val filled = set.isFilled
                 val isSelected = i == selected
+                val border = selectedBorder(isSelected, faded = !filled)
                 Box(
                     Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(if (filled) MaterialTheme.colorScheme.surfaceContainerHigh else Color.Transparent)
-                        .then(if (isSelected) Modifier.border(2.dp, MaterialTheme.colorScheme.primary, CircleShape) else Modifier)
+                        .background(selectedFill(isSelected))
+                        .border(border.width, border.brush, CircleShape)
                         .clickable { onSelect(i) }
                         .semantics {
                             contentDescription = "Set ${i + 1}" + when {
@@ -498,11 +514,22 @@ private fun SetSelector(slots: Int, sets: List<SetInput>, selected: Int, onSelec
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = if (isSelected || filled) FontWeight.Bold else FontWeight.Normal,
                         color = when {
-                            isSelected || filled -> MaterialTheme.colorScheme.onSurface
+                            isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
+                            filled -> MaterialTheme.colorScheme.onSurface
                             else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                         },
                     )
                 }
+            }
+            Box(
+                Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                    .clickable(onClick = onAdd),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "Add set", tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(20.dp))
             }
         }
     }
