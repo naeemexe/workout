@@ -6,7 +6,9 @@ A simple Android workout tracker. Log what you lift; watch your strength chart l
 - **Home**: Strength Index chart (drag to scrub, 1W to All, dashed projection, "Details" for per-exercise lines),
   Weight and Streak tiles, muscle map, "Next session" (exercises ready to step up), and a training calendar.
 - **Log**: Session (from the active session plan, or Rest / Custom), Exercise, Sets, weight and reps, Save and a rest
-  timer. With a planned set count, Save goes set by set ("Save set 1", …). Calendar date picker for backfilling.
+  timer. The plan sets the number of sets (+ adds one for that day); Save goes set by set ("Save set 1", …), each set
+  opens once the one before is saved, and Save starts the rest timer. One log per exercise per day: going back to it
+  edits that log. A custom session lists only what you've logged that day. Calendar date picker for backfilling.
 - **More**
   - **Session plans**: several plans, one active. 7 day slots with names, exercises (with set counts, drag to
     reorder), color tags, and an optional week-based rotation.

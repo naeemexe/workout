@@ -85,9 +85,8 @@ class LogViewModel(
     private val settings: SettingsStore,
     alarm: RestAlarm,
 ) : ViewModel() {
-    /** Rest between sets. After the Rest button (no planned set count), the next set is selected when it runs out. */
-    val rest = RestTimer(viewModelScope, alarm) { if (restAdvancesSet) selectSet(selectedSet + 1) }
-    private var restAdvancesSet = false
+    /** Rest between sets (Save starts it; the Rest button restarts it). */
+    val rest = RestTimer(viewModelScope, alarm)
     /** What comes after the rest, shown on the rest panel ("then set 2", "then Squat"). */
     var restNote by mutableStateOf("")
         private set
@@ -100,16 +99,13 @@ class LogViewModel(
         settings.setRestSeconds(seconds)
     }
 
-    /** The Rest button: without a planned set count, the next set is selected when the rest is over. */
     fun startRest() {
-        restAdvancesSet = plannedSets == null
-        restNote = "then set ${if (restAdvancesSet) selectedSet + 2 else selectedSet + 1}"
+        restNote = if (exercise.isNotBlank() && selectedSet > savedThrough) "then set ${selectedSet + 1}" else ""
         rest.start(defaultRestSeconds)
     }
 
     /** Save starts the rest by itself; it has already moved on to the next set, or to the next exercise. */
     private fun restAfterSave(nextExercise: Boolean) {
-        restAdvancesSet = false
         restNote = when {
             exercise.isBlank() -> ""
             nextExercise -> "then $exercise"
@@ -215,13 +211,13 @@ class LogViewModel(
     }
 
     /**
-     * The Exercise row: the session's planned exercises (recent ones with no plan or in a custom session), then any
-     * added with "+ Other", with the one being logged highlighted.
+     * The Exercise row: the session's planned exercises (with no plan or in a custom session, only the ones logged
+     * that day), then any added with "+ Other", with the one being logged highlighted.
      */
     val dayChips by derivedStateOf {
         val done = entriesForDate.map { it.exercise.lowercase() }.toSet()
         val planned = planDay?.takeUnless { it.isRest }?.exercises.orEmpty()
-        val base = (if (cycle.isEmpty() || planDay?.isCustom == true) knownExercises.take(10) else planned)
+        val base = (if (cycle.isEmpty() || planDay?.isCustom == true) entriesForDate.sortedBy { it.createdAt }.map { it.exercise }.distinctBy { it.lowercase() } else planned)
             .map { ExerciseChip(it, done = it.lowercase() in done) }
         // Exercises you added with "+ Other" stay in this session's row until the app is closed.
         val added = sessionExtras[sessionKey].orEmpty()
@@ -287,8 +283,8 @@ class LogViewModel(
         day.exercises.indexOfFirst { it.equals(exercise.trim(), ignoreCase = true) }.takeIf { it >= 0 }?.let(day::setsFor)
     }
 
-    /** With a planned set count, Save saves one set at a time and moves on; the last one (planned or added) finishes the exercise. */
-    val savingOneSet: Boolean by derivedStateOf { plannedSets != null && selectedSet < sets.lastIndex }
+    /** Save saves one set at a time and moves on; the last set (planned or added with +) finishes the exercise. */
+    val savingOneSet: Boolean by derivedStateOf { selectedSet < sets.lastIndex }
 
     /**
      * The log being written for the selected exercise on this date: null id until the first save. Saves keep a
@@ -296,21 +292,22 @@ class LogViewModel(
      */
     private class Progress(var id: Long? = null, val createdAt: Long = System.currentTimeMillis(), var merged: List<ExerciseLog> = emptyList())
     private var progress = Progress()
-    /** Index of the last set saved with "Save set N" for the exercise being logged. */
-    private var savedThrough by mutableIntStateOf(-1)
+    /** Index of the last saved set of the exercise being logged (-1 = none yet). */
+    var savedThrough by mutableIntStateOf(-1)
+        private set
+
+    /** Sets open to tap: the saved ones and the next one. Later sets wait until the one before is saved. */
+    private fun canSelectSet(index: Int): Boolean = index <= savedThrough + 1
     /** Saves run one at a time so quick taps can't create two logs for the same exercise. */
     private val saving = Mutex()
 
-    val canSave by derivedStateOf {
-        exercise.isNotBlank() && if (savingOneSet) current.isFilled else sets.any { it.isFilled }
-    }
+    val canSave by derivedStateOf { exercise.isNotBlank() && current.isFilled }
 
-    /** What Save says: why it's disabled, "Save set 2" while working through planned sets, or "Save". */
+    /** What Save says: why it's disabled, "Save set 2" while working through the sets, or "Save" on the last one. */
     val saveLabel: String by derivedStateOf {
         when {
             exercise.isBlank() -> "Pick an exercise first"
-            savingOneSet && !current.isFilled -> "Enter weight and reps"
-            sets.none { it.isFilled } -> "Enter weight and reps"
+            !current.isFilled -> "Enter weight and reps"
             savingOneSet -> "Save set ${selectedSet + 1}"
             else -> "Save"
         }
@@ -410,36 +407,38 @@ class LogViewModel(
     }
     fun onRepsChange(v: String) { if (v.isEmpty() || COUNT_INPUT.matches(v)) sets[selectedSet] = current.copy(reps = v) }
 
-    /**
-     * Select set [index]. One past the last starts a new set (when the last is filled; used after a rest),
-     * carrying the weight over since it's usually the same.
-     */
+    /** Tap a set to enter or edit it: a saved one, or the next one to do. */
     fun selectSet(index: Int) {
-        val last = sets.last()
-        when {
-            index < sets.size -> selectedSet = index
-            last.isFilled -> {
-                sets.add(SetInput(weight = last.weight))
-                selectedSet = sets.lastIndex
-            }
-            else -> selectedSet = sets.lastIndex
-        }
+        if (index in sets.indices && canSelectSet(index)) selectedSet = index
     }
 
-    /** The + after the set bubbles: one more set, starting with the last one's weight. */
+    /**
+     * The + after the set bubbles: one more set for today, starting with the last one's weight. Only today's log
+     * gets it; next time the plan's count applies again. Selected straight away if every set before it is saved.
+     */
     fun addSet() {
         val last = sets.last()
-        if (!last.isBlank) sets.add(SetInput(weight = last.weight))
-        selectedSet = sets.lastIndex
+        if (last.isBlank) return selectSet(sets.lastIndex)
+        sets.add(SetInput(weight = last.weight))
+        selectSet(sets.lastIndex)
     }
 
+    /** Removes the selected set; a saved one comes out of the day's log right away. */
     fun removeSelectedSet() {
-        if (sets.size == 1) {
-            sets[0] = SetInput()
-        } else {
-            sets.removeAt(selectedSet)
-            selectedSet = selectedSet.coerceAtMost(sets.lastIndex)
+        val index = selectedSet
+        if (sets.size == 1) sets[0] = SetInput() else sets.removeAt(index)
+        selectedSet = index.coerceAtMost(sets.lastIndex)
+        if (index > savedThrough) return
+        savedThrough--
+        val p = progress
+        val id = p.id ?: return
+        val log = ExerciseLog(id = id, exercise = exercise, sets = sets.take(savedThrough + 1).mapNotNull { it.entry }, epochDay = date.toEpochDay())
+        viewModelScope.launch {
+            saving.withLock {
+                if (log.sets.isEmpty()) { repository.delete(log); p.id = null } else repository.add(log.copy(createdAt = p.createdAt))
+            }
         }
+        selectedSet = minOf(selectedSet, savedThrough + 1)
     }
 
     private val sessionKey: String get() = "${date.toEpochDay()}|${planDay?.let { if (it.isCustom) "custom" else it.displayName }.orEmpty()}"
@@ -458,8 +457,9 @@ class LogViewModel(
     }
 
     /**
-     * Pick an exercise. Already logged on this date: its sets load for editing and Save updates that same log, with the
-     * next set selected. Otherwise the sets are pre-filled with what you did last time. At least as many as planned.
+     * Pick an exercise. Already logged on this date: that day's sets load (however many you did) and Save updates the
+     * same log, with the next set selected. Otherwise the plan sets the number of sets, pre-filled from last time;
+     * with no plan, last time's sets.
      */
     fun selectExercise(name: String) {
         searching = false
@@ -470,8 +470,11 @@ class LogViewModel(
         progress = logged.firstOrNull()?.let { Progress(it.id, it.createdAt, logged.drop(1)) } ?: Progress()
         savedThrough = if (logged.isNotEmpty()) source.lastIndex else -1
         val inputs = source.map { SetInput(it.weightLbs.weightText(), it.reps.toString()) }.toMutableList()
-        // At least as many set bubbles as planned; extra ones start with the last weight.
-        plannedSets?.let { n -> while (inputs.size < n) inputs += SetInput(weight = inputs.lastOrNull()?.weight.orEmpty()) }
+        plannedSets?.let { n ->
+            // A new day follows the plan: extra sets from last time are left out, missing ones start with the last weight.
+            if (logged.isEmpty()) while (inputs.size > n) inputs.removeAt(inputs.lastIndex)
+            while (inputs.size < n) inputs += SetInput(weight = inputs.lastOrNull()?.weight.orEmpty())
+        }
         resetSets(inputs)
         // Continue where you left off: the first set not saved yet, else the last one (tap + for another).
         if (logged.isNotEmpty()) selectedSet = minOf(source.size, sets.lastIndex)
@@ -515,8 +518,9 @@ class LogViewModel(
         restAfterSave(nextExercise = true)
     }
 
-    /** Saves the sets done so far (so nothing is lost) and jumps to the next one. */
+    /** Saves the sets done so far (so nothing is lost) and jumps to the next one, if it isn't saved yet. */
     private fun saveSet(name: String) {
+        val advancing = selectedSet > savedThrough
         savedThrough = maxOf(savedThrough, selectedSet)
         val done = sets.take(savedThrough + 1).mapNotNull { it.entry }
         val log = ExerciseLog(exercise = name, sets = done, epochDay = date.toEpochDay())
@@ -529,6 +533,8 @@ class LogViewModel(
             day?.let { plans.recordIfAbsent(logDate, it) }
             _events.send(LogEvent.SetSaved(name, setNumber))
         }
+        // Editing an earlier set keeps you where you are; otherwise on to the next set and rest.
+        if (!advancing) return
         // Next set starts with this set's weight if it has none yet (usually the same).
         val weight = current.weight
         selectSet(savedThrough + 1)
@@ -537,6 +543,8 @@ class LogViewModel(
     }
 
     fun delete(log: ExerciseLog) {
+        // Deleting the log being filled in: start that exercise over, so a later save doesn't bring it back.
+        if (log.id == progress.id) { progress = Progress(); savedThrough = -1 }
         viewModelScope.launch {
             repository.delete(log)
             _events.send(LogEvent.Deleted(log))

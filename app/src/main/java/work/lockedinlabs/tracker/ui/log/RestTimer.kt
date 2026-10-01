@@ -26,7 +26,6 @@ import kotlinx.coroutines.launch
 class RestTimer(
     private val scope: CoroutineScope,
     private val alarm: RestAlarm,
-    private val onFinished: () -> Unit,
 ) {
     private var endsAt by mutableLongStateOf(0L)
     var totalSeconds by mutableIntStateOf(0)
@@ -52,7 +51,6 @@ class RestTimer(
             }
             endsAt = 0
             alarm.fire()
-            onFinished()
         }
     }
 

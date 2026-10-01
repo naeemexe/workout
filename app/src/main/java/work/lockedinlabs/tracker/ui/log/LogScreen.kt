@@ -92,6 +92,11 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.ui.unit.dp
 import work.lockedinlabs.tracker.data.PlanDay
 import work.lockedinlabs.tracker.domain.label
@@ -102,6 +107,35 @@ import work.lockedinlabs.tracker.domain.headline
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 
 private val LABEL_WIDTH = 88.dp
+/** Session and Exercise chips share one width, so the selected ones line up; long names end in "…". */
+private val CHIP_WIDTH = 132.dp
+
+/** Space before the selected chip: a sliver of the chip before it shows there, so you can tell the row scrolls left. */
+private val PEEK = 20.dp
+
+/**
+ * Session and Exercise rows: the selected chip always sits at the same spot, [PEEK] from the row's start, so the two
+ * line up whichever one is picked. The end padding lets the last chips scroll there too.
+ */
+@Composable
+private fun ChipRow(state: LazyListState, selected: Int, modifier: Modifier = Modifier, content: LazyListScope.() -> Unit) {
+    var viewport by remember { mutableIntStateOf(0) }
+    val endPadding = with(LocalDensity.current) { (viewport.toDp() - CHIP_WIDTH - PEEK).coerceAtLeast(0.dp) }
+    // Coming back to the page jumps straight into place; only a new pick scrolls there.
+    var placed by remember { mutableStateOf(false) }
+    LaunchedEffect(selected, viewport > 0) {
+        if (selected < 0 || viewport == 0) return@LaunchedEffect
+        if (placed) state.animateScrollToItem(selected) else state.scrollToItem(selected)
+        placed = true
+    }
+    LazyRow(
+        modifier.onSizeChanged { viewport = it.width }.fadingEdges(state, start = PEEK),
+        state = state,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(start = PEEK, end = endPadding, top = 4.dp, bottom = 4.dp),
+        content = content,
+    )
+}
 
 @Composable
 fun LogScreen(viewModel: LogViewModel, snackbar: SnackbarHostState, onOpenPlans: () -> Unit, modifier: Modifier = Modifier) {
@@ -200,12 +234,7 @@ private fun ColumnScope.ExerciseLogger(viewModel: LogViewModel, focus: FocusMana
         Spacer(Modifier.height(12.dp))
     }
         // Kept outside the search/row switch so the row doesn't jump back to the start after "+ Other".
-        val chipsState = rememberLazyListState()
-        val selectedChip = viewModel.dayChips.indexOfFirst { it.selected }
-        // Bring the selected exercise into view (e.g. one just added at the end of the row).
-        LaunchedEffect(selectedChip, viewModel.searching) {
-            if (!viewModel.searching && selectedChip >= 0) chipsState.animateScrollToItem((selectedChip - 1).coerceAtLeast(0))
-        }
+        val chipsState = rememberLazyListState(initialFirstVisibleItemIndex = viewModel.dayChips.indexOfFirst { it.selected }.coerceAtLeast(0))
         if (viewModel.searching) {
             // "+ Other": search your history and the catalog, or type a custom name.
             val searchFocus = remember { FocusRequester() }
@@ -236,14 +265,15 @@ private fun ColumnScope.ExerciseLogger(viewModel: LogViewModel, focus: FocusMana
             // "Exercise" label, then the day's exercises; anything else lives behind "+ Other".
             Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Exercise", style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(LABEL_WIDTH))
-            LazyRow(Modifier.weight(1f).fadingEdges(chipsState), state = chipsState, horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 4.dp)) {
+            // The selected exercise lines up under the selected session (also one just added at the end).
+            ChipRow(chipsState, viewModel.dayChips.indexOfFirst { it.selected }, Modifier.weight(1f)) {
                 items(viewModel.dayChips, key = { it.name }) { chip ->
-                    ExerciseChipView(chip, onClick = { viewModel.selectExercise(chip.name) })
+                    ExerciseChipView(chip, fixedWidth = true, onClick = { viewModel.selectExercise(chip.name) })
                 }
                 item(key = "+other") {
                     AssistChip(
                         onClick = viewModel::openSearch,
-                        label = { Text("Other") },
+                        label = { Text(if (viewModel.dayChips.isEmpty()) "Add exercise" else "Other") },
                         leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp)) },
                     )
                 }
@@ -267,7 +297,7 @@ private fun ColumnScope.ExerciseLogger(viewModel: LogViewModel, focus: FocusMana
         }
 
         Spacer(Modifier.height(20.dp))
-        SetSelector(viewModel.sets, viewModel.selectedSet, viewModel::selectSet, viewModel::addSet)
+        SetSelector(viewModel.sets.size, viewModel.selectedSet, viewModel.savedThrough, viewModel::selectSet, viewModel::addSet)
         Spacer(Modifier.height(16.dp))
         val current = viewModel.current
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -399,15 +429,14 @@ private fun RestPanel(rest: RestTimer, note: String, modifier: Modifier) {
 private fun PlanDayPicker(viewModel: LogViewModel, onOpenPlans: () -> Unit) {
     val selected = viewModel.planDay
     val custom = selected?.takeIf { it.dayIndex == PlanDay.CUSTOM_CHOICE }
-    // Keep the selected day in view (the row scrolls sideways): workout days, then Rest, then Custom.
-    val listState = rememberLazyListState()
+    // Row order: workout days, then Rest, then Custom; the selected one is kept in place by ChipRow.
     val selectedIndex = when {
         selected == null -> 0
         selected.isCustom -> viewModel.workoutDays.size + 1
         selected.isRest -> viewModel.workoutDays.size
         else -> viewModel.workoutDays.indexOfFirst { it.dayIndex == selected.dayIndex }.coerceAtLeast(0)
     }
-    LaunchedEffect(selectedIndex) { listState.animateScrollToItem((selectedIndex - 1).coerceAtLeast(0)) }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
     // "Session" label, matching "Exercise" and "Sets" below it.
     Row(verticalAlignment = Alignment.CenterVertically) {
     Text("Session", style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(LABEL_WIDTH))
@@ -416,10 +445,11 @@ private fun PlanDayPicker(viewModel: LogViewModel, onOpenPlans: () -> Unit) {
             onClick = onOpenPlans,
             label = { Text("Add plan") },
             leadingIcon = { Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(18.dp)) },
+            modifier = Modifier.padding(start = PEEK),
         )
         return@Row
     }
-    LazyRow(Modifier.weight(1f).fadingEdges(listState), state = listState, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    ChipRow(listState, selectedIndex, Modifier.weight(1f)) {
         items(viewModel.workoutDays, key = { it.dayIndex }) { day ->
             DayChip(day.displayName, day.dayIndex == selected?.dayIndex) { viewModel.choosePlanDay(day) }
         }
@@ -449,21 +479,33 @@ private fun selectedBorder(selected: Boolean, faded: Boolean = false) = BorderSt
 private fun DayChip(label: String, selected: Boolean, onClick: () -> Unit) {
     SuggestionChip(
         onClick = onClick,
-        label = { Text(label) },
+        label = { ChipLabel(label, fixedWidth = true) },
         colors = SuggestionChipDefaults.suggestionChipColors(
             containerColor = selectedFill(selected),
             labelColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
         ),
         border = selectedBorder(selected),
-        modifier = Modifier.semantics { if (selected) stateDescription = "Selected" },
+        modifier = Modifier.width(CHIP_WIDTH).semantics { if (selected) stateDescription = "Selected" },
+    )
+}
+
+/** Chip text: one line; at a fixed width it's centered and long names end in "…". */
+@Composable
+private fun ChipLabel(text: String, fixedWidth: Boolean) {
+    Text(
+        text,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = if (fixedWidth) TextAlign.Center else null,
+        modifier = if (fixedWidth) Modifier.fillMaxWidth() else Modifier,
     )
 }
 
 @Composable
-private fun ExerciseChipView(chip: ExerciseChip, onClick: () -> Unit) {
+private fun ExerciseChipView(chip: ExerciseChip, onClick: () -> Unit, fixedWidth: Boolean = false) {
     SuggestionChip(
         onClick = onClick,
-        label = { Text(if (chip.custom) "Create “${chip.name}”" else chip.name) },
+        label = { ChipLabel(if (chip.custom) "Create “${chip.name}”" else chip.name, fixedWidth) },
         icon = if (chip.done) {
             { Icon(Icons.Filled.Check, contentDescription = "Done", modifier = Modifier.size(18.dp)) }
         } else null,
@@ -477,34 +519,40 @@ private fun ExerciseChipView(chip: ExerciseChip, onClick: () -> Unit) {
             iconContentColor = MaterialTheme.colorScheme.primary,
         ),
         border = selectedBorder(chip.selected),
+        modifier = if (fixedWidth) Modifier.width(CHIP_WIDTH) else Modifier,
     )
 }
 
-/** "Sets  1 2 3 +": one bubble per set (as many as planned), + for another. Empty sets are faded. */
+/**
+ * "Sets  1 2 3 +": one bubble per set (as many as planned), + for another. Saved sets are bold; the next one is open;
+ * later ones are faded and wait until the one before is saved.
+ */
 @Composable
-private fun SetSelector(sets: List<SetInput>, selected: Int, onSelect: (Int) -> Unit, onAdd: () -> Unit) {
+private fun SetSelector(count: Int, selected: Int, savedThrough: Int, onSelect: (Int) -> Unit, onAdd: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("Sets", style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(LABEL_WIDTH))
         Row(
             Modifier.weight(1f).horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            sets.forEachIndexed { i, set ->
-                val filled = set.isFilled
+            repeat(count) { i ->
+                val saved = i <= savedThrough
+                val open = i <= savedThrough + 1
                 val isSelected = i == selected
-                val border = selectedBorder(isSelected, faded = !filled)
+                val border = selectedBorder(isSelected, faded = !open)
                 Box(
                     Modifier
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(selectedFill(isSelected))
                         .border(border.width, border.brush, CircleShape)
-                        .clickable { onSelect(i) }
+                        .clickable(enabled = open) { onSelect(i) }
                         .semantics {
                             contentDescription = "Set ${i + 1}" + when {
                                 isSelected -> ", selected"
-                                filled -> ", logged"
-                                else -> ", empty"
+                                saved -> ", saved"
+                                open -> ", next"
+                                else -> ", locked"
                             }
                         },
                     contentAlignment = Alignment.Center,
@@ -512,10 +560,10 @@ private fun SetSelector(sets: List<SetInput>, selected: Int, onSelect: (Int) -> 
                     Text(
                         "${i + 1}",
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = if (isSelected || filled) FontWeight.Bold else FontWeight.Normal,
+                        fontWeight = if (isSelected || saved) FontWeight.Bold else FontWeight.Normal,
                         color = when {
                             isSelected -> MaterialTheme.colorScheme.onPrimaryContainer
-                            filled -> MaterialTheme.colorScheme.onSurface
+                            open -> MaterialTheme.colorScheme.onSurface
                             else -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)
                         },
                     )
@@ -598,14 +646,14 @@ private fun DayEntries(viewModel: LogViewModel) {
 }
 
 /** Softly fades a sideways-scrolling row's edges where there's more to scroll, instead of a hard cut. */
-private fun Modifier.fadingEdges(state: LazyListState, width: Dp = 36.dp): Modifier = this
+private fun Modifier.fadingEdges(state: LazyListState, width: Dp = 36.dp, start: Dp = width): Modifier = this
     .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
     .drawWithContent {
         drawContent()
         val fade = width.toPx().coerceAtMost(size.width / 3)
         if (state.canScrollBackward) {
             drawRect(
-                Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = 0f, endX = fade),
+                Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), startX = 0f, endX = start.toPx().coerceAtMost(size.width / 3)),
                 blendMode = BlendMode.DstIn,
             )
         }
