@@ -1,5 +1,14 @@
 package work.lockedinlabs.tracker.ui.profile
 
+import android.content.Intent
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import android.text.format.DateUtils
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Button
@@ -10,7 +19,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import work.lockedinlabs.tracker.sync.SyncStatus
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -181,6 +189,22 @@ private fun AccountCard(viewModel: ProfileViewModel) {
     val context = LocalContext.current
     val status by viewModel.syncStatus.collectAsStateWithLifecycle()
     val account = viewModel.account
+    var confirmDelete by rememberSaveable { mutableStateOf(false) }
+    if (confirmDelete) DeleteAccountDialog(
+        deleting = viewModel.deleting,
+        onDelete = { eraseLocal -> viewModel.deleteAccount(context, eraseLocal) },
+        onDismiss = { confirmDelete = false },
+    )
+    // Closes once the account is gone (signed out).
+    LaunchedEffect(account) { if (account == null) confirmDelete = false }
+    // This phone's data was erased too: start over from the welcome screen.
+    LaunchedEffect(viewModel.erased) {
+        if (viewModel.erased) {
+            val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            context.startActivity(Intent.makeRestartActivityTask(launch!!.component))
+            Runtime.getRuntime().exit(0)
+        }
+    }
     LabCard {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -198,7 +222,7 @@ private fun AccountCard(viewModel: ProfileViewModel) {
                     )
                     Text(
                         when {
-                            account == null -> "Sign in with Google to keep your workouts safe and restore them on a new phone."
+                            account == null -> "Sign in with Google to back up your workouts."
                             else -> listOfNotNull(account.email, statusText(status)).joinToString(" · ")
                         },
                         style = MaterialTheme.typography.bodySmall,
@@ -224,9 +248,44 @@ private fun AccountCard(viewModel: ProfileViewModel) {
                         Text("Sign out", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+                TextButton(onClick = { confirmDelete = true }, contentPadding = PaddingValues(horizontal = 0.dp)) {
+                    Text("Delete account", color = MaterialTheme.colorScheme.error)
+                }
+                viewModel.deleteError?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }
+}
+
+/** Confirms deleting the account; optionally erases this phone's data too. */
+@Composable
+private fun DeleteAccountDialog(deleting: Boolean, onDelete: (eraseLocal: Boolean) -> Unit, onDismiss: () -> Unit) {
+    var eraseLocal by rememberSaveable { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = { if (!deleting) onDismiss() },
+        title = { Text("Delete account?") },
+        text = {
+            Column {
+                Text("Your backup and account will be deleted. This can't be undone.")
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    Modifier.fillMaxWidth().clickable(enabled = !deleting) { eraseLocal = !eraseLocal },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(checked = eraseLocal, onCheckedChange = { eraseLocal = it }, enabled = !deleting)
+                    Text("Also erase this phone's data")
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onDelete(eraseLocal) }, enabled = !deleting) {
+                Text(if (deleting) "Deleting…" else "Delete", color = MaterialTheme.colorScheme.error)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss, enabled = !deleting) { Text("Cancel") } },
+    )
 }
 
 private fun statusText(status: SyncStatus): String = when (status) {

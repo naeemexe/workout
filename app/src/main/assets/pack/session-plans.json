@@ -1,0 +1,228 @@
+{
+  "version": 1,
+  "about": "Ready-made session plans offered in More > Session plans and on first launch. Days run in order and repeat (rest days pass on their own). Workout day names must be unique within a plan. Exercise names must match exercises.json. levels: Beginner, Intermediate, Advanced (the first is the main fit). sets = planned sets per exercise.",
+  "plans": [
+    {
+      "id": "full-body",
+      "name": "Full Body",
+      "levels": ["Beginner"],
+      "summary": "Whole body every other day.",
+      "days": [
+        {"name": "Full Body A", "exercises": [
+          {"name": "Squat", "sets": 3},
+          {"name": "Bench Press", "sets": 3},
+          {"name": "Barbell Row", "sets": 3},
+          {"name": "Dumbbell Curl", "sets": 2},
+          {"name": "Tricep Pushdown", "sets": 2}
+        ]},
+        {"rest": true},
+        {"name": "Full Body B", "exercises": [
+          {"name": "Romanian Deadlift", "sets": 3},
+          {"name": "Overhead Press", "sets": 3},
+          {"name": "Lat Pulldown", "sets": 3},
+          {"name": "Leg Press", "sets": 3},
+          {"name": "Hanging Leg Raise", "sets": 2}
+        ]},
+        {"rest": true}
+      ]
+    },
+    {
+      "id": "upper-lower",
+      "name": "Upper Lower",
+      "levels": ["Beginner", "Intermediate"],
+      "summary": "Upper and lower body, twice a week each.",
+      "days": [
+        {"name": "Upper A", "exercises": [
+          {"name": "Bench Press", "sets": 4},
+          {"name": "Barbell Row", "sets": 4},
+          {"name": "Overhead Press", "sets": 3},
+          {"name": "Lat Pulldown", "sets": 3},
+          {"name": "Barbell Curl", "sets": 2},
+          {"name": "Tricep Pushdown", "sets": 2}
+        ]},
+        {"name": "Lower A", "exercises": [
+          {"name": "Squat", "sets": 4},
+          {"name": "Romanian Deadlift", "sets": 3},
+          {"name": "Leg Press", "sets": 3},
+          {"name": "Leg Curl", "sets": 3},
+          {"name": "Calf Raise", "sets": 3}
+        ]},
+        {"rest": true},
+        {"name": "Upper B", "exercises": [
+          {"name": "Incline Dumbbell Press", "sets": 3},
+          {"name": "Seated Cable Row", "sets": 3},
+          {"name": "Dumbbell Shoulder Press", "sets": 3},
+          {"name": "Pull-Up", "sets": 3},
+          {"name": "Lateral Raise", "sets": 3},
+          {"name": "Hammer Curl", "sets": 2},
+          {"name": "Overhead Tricep Extension", "sets": 2}
+        ]},
+        {"name": "Lower B", "exercises": [
+          {"name": "Deadlift", "sets": 3},
+          {"name": "Bulgarian Split Squat", "sets": 3},
+          {"name": "Leg Extension", "sets": 3},
+          {"name": "Leg Curl", "sets": 3},
+          {"name": "Seated Calf Raise", "sets": 3}
+        ]},
+        {"rest": true},
+        {"rest": true}
+      ]
+    },
+    {
+      "id": "chest-back-arms-legs",
+      "name": "Chest Back, Arms, Legs",
+      "levels": ["Intermediate"],
+      "summary": "Chest and back, arms, legs, rest.",
+      "days": [
+        {"name": "Chest & Back", "exercises": [
+          {"name": "Bench Press", "sets": 4},
+          {"name": "Barbell Row", "sets": 4},
+          {"name": "Incline Dumbbell Press", "sets": 3},
+          {"name": "Lat Pulldown", "sets": 3},
+          {"name": "Chest Fly", "sets": 3},
+          {"name": "Seated Cable Row", "sets": 3}
+        ]},
+        {"name": "Biceps & Triceps", "exercises": [
+          {"name": "Barbell Curl", "sets": 3},
+          {"name": "Close-Grip Bench Press", "sets": 3},
+          {"name": "Hammer Curl", "sets": 3},
+          {"name": "Tricep Pushdown", "sets": 3},
+          {"name": "Preacher Curl", "sets": 3},
+          {"name": "Overhead Tricep Extension", "sets": 3}
+        ]},
+        {"name": "Legs", "exercises": [
+          {"name": "Squat", "sets": 4},
+          {"name": "Romanian Deadlift", "sets": 3},
+          {"name": "Leg Press", "sets": 3},
+          {"name": "Leg Curl", "sets": 3},
+          {"name": "Calf Raise", "sets": 4}
+        ]},
+        {"rest": true}
+      ]
+    },
+    {
+      "id": "ppl-upper-lower",
+      "name": "Push Pull Legs + Upper Lower",
+      "levels": ["Intermediate"],
+      "summary": "Push, pull, legs, then upper and lower.",
+      "days": [
+        {"name": "Push", "exercises": [
+          {"name": "Bench Press", "sets": 4},
+          {"name": "Overhead Press", "sets": 3},
+          {"name": "Incline Dumbbell Press", "sets": 3},
+          {"name": "Lateral Raise", "sets": 3},
+          {"name": "Tricep Pushdown", "sets": 3}
+        ]},
+        {"name": "Pull", "exercises": [
+          {"name": "Barbell Row", "sets": 4},
+          {"name": "Pull-Up", "sets": 3},
+          {"name": "Face Pull", "sets": 3},
+          {"name": "Barbell Curl", "sets": 3},
+          {"name": "Hammer Curl", "sets": 2}
+        ]},
+        {"name": "Legs", "exercises": [
+          {"name": "Squat", "sets": 4},
+          {"name": "Romanian Deadlift", "sets": 3},
+          {"name": "Leg Press", "sets": 3},
+          {"name": "Leg Curl", "sets": 3},
+          {"name": "Calf Raise", "sets": 3}
+        ]},
+        {"rest": true},
+        {"name": "Upper", "exercises": [
+          {"name": "Incline Bench Press", "sets": 3},
+          {"name": "Seated Cable Row", "sets": 3},
+          {"name": "Dumbbell Shoulder Press", "sets": 3},
+          {"name": "Lat Pulldown", "sets": 3},
+          {"name": "Dumbbell Curl", "sets": 2},
+          {"name": "Overhead Tricep Extension", "sets": 2}
+        ]},
+        {"name": "Lower", "exercises": [
+          {"name": "Deadlift", "sets": 3},
+          {"name": "Front Squat", "sets": 3},
+          {"name": "Bulgarian Split Squat", "sets": 3},
+          {"name": "Leg Curl", "sets": 3},
+          {"name": "Seated Calf Raise", "sets": 3}
+        ]},
+        {"rest": true}
+      ]
+    },
+    {
+      "id": "push-pull-legs",
+      "name": "Push Pull Legs",
+      "levels": ["Intermediate", "Advanced"],
+      "summary": "Every muscle about twice a week.",
+      "days": [
+        {"name": "Push", "exercises": [
+          {"name": "Bench Press", "sets": 4},
+          {"name": "Overhead Press", "sets": 3},
+          {"name": "Incline Dumbbell Press", "sets": 3},
+          {"name": "Lateral Raise", "sets": 3},
+          {"name": "Tricep Pushdown", "sets": 3},
+          {"name": "Overhead Tricep Extension", "sets": 2}
+        ]},
+        {"name": "Pull", "exercises": [
+          {"name": "Barbell Row", "sets": 4},
+          {"name": "Pull-Up", "sets": 3},
+          {"name": "Seated Cable Row", "sets": 3},
+          {"name": "Face Pull", "sets": 3},
+          {"name": "Barbell Curl", "sets": 3},
+          {"name": "Hammer Curl", "sets": 2}
+        ]},
+        {"name": "Legs", "exercises": [
+          {"name": "Squat", "sets": 4},
+          {"name": "Romanian Deadlift", "sets": 3},
+          {"name": "Leg Press", "sets": 3},
+          {"name": "Leg Curl", "sets": 3},
+          {"name": "Calf Raise", "sets": 4}
+        ]},
+        {"rest": true}
+      ]
+    },
+    {
+      "id": "bro-split",
+      "name": "Bro Split",
+      "levels": ["Advanced"],
+      "summary": "One muscle group a day.",
+      "days": [
+        {"name": "Back", "exercises": [
+          {"name": "Deadlift", "sets": 3},
+          {"name": "Pull-Up", "sets": 3},
+          {"name": "Barbell Row", "sets": 3},
+          {"name": "Lat Pulldown", "sets": 3},
+          {"name": "Seated Cable Row", "sets": 3}
+        ]},
+        {"name": "Chest", "exercises": [
+          {"name": "Bench Press", "sets": 4},
+          {"name": "Incline Dumbbell Press", "sets": 3},
+          {"name": "Machine Chest Press", "sets": 3},
+          {"name": "Cable Crossover", "sets": 3},
+          {"name": "Dips", "sets": 3}
+        ]},
+        {"name": "Arms", "exercises": [
+          {"name": "Barbell Curl", "sets": 3},
+          {"name": "Skull Crusher", "sets": 3},
+          {"name": "Hammer Curl", "sets": 3},
+          {"name": "Tricep Pushdown", "sets": 3},
+          {"name": "Preacher Curl", "sets": 3},
+          {"name": "Overhead Tricep Extension", "sets": 3}
+        ]},
+        {"name": "Shoulders", "exercises": [
+          {"name": "Overhead Press", "sets": 4},
+          {"name": "Lateral Raise", "sets": 4},
+          {"name": "Rear Delt Fly", "sets": 3},
+          {"name": "Arnold Press", "sets": 3},
+          {"name": "Shrugs", "sets": 3}
+        ]},
+        {"name": "Legs", "exercises": [
+          {"name": "Squat", "sets": 4},
+          {"name": "Leg Press", "sets": 3},
+          {"name": "Romanian Deadlift", "sets": 3},
+          {"name": "Leg Extension", "sets": 3},
+          {"name": "Leg Curl", "sets": 3},
+          {"name": "Calf Raise", "sets": 4}
+        ]},
+        {"rest": true}
+      ]
+    }
+  ]
+}

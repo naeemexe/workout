@@ -60,6 +60,12 @@ class SyncStore(context: Context) {
         get() = prefs.getLong(LAST_SYNC, 0)
         set(v) = prefs.edit { putLong(LAST_SYNC, v) }
 
+    /** After the account is deleted: the next sign-in (any account) starts fresh and uploads what's on this phone. */
+    @Synchronized fun forgetAccount() = prefs.edit { remove(SYNCED_UID); remove(PULL_CURSOR); remove(LAST_SYNC) }
+
+    /** Everything, for erasing this phone's data. */
+    @Synchronized fun clear() = prefs.edit { clear() }
+
     private companion object {
         const val DIRTY_DAYS = "dirty_days"
         const val PROFILE_AT = "profile_at"

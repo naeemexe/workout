@@ -59,6 +59,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import work.lockedinlabs.tracker.data.ProgressionRule
 import work.lockedinlabs.tracker.domain.ExerciseCatalog
+import work.lockedinlabs.tracker.pack.Pack
 import work.lockedinlabs.tracker.domain.Rule
 import work.lockedinlabs.tracker.domain.weightText
 import work.lockedinlabs.tracker.ui.theme.LabCard
@@ -132,6 +133,22 @@ private fun RulesList(viewModel: RulesViewModel) {
         Icon(Icons.Filled.Add, contentDescription = null, modifier = Modifier.size(20.dp))
         Spacer(Modifier.width(8.dp))
         Text("Create progression plan", style = MaterialTheme.typography.titleSmall)
+    }
+    Spacer(Modifier.height(24.dp))
+    Text("Ready-made plans", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp))
+    Spacer(Modifier.height(10.dp))
+    Pack.current.progressionPlans.forEach { preset ->
+        LabCard(Modifier.clickable { viewModel.create(preset) }) {
+            Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(preset.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Spacer(Modifier.height(2.dp))
+                    Text(preset.summary, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Icon(Icons.Filled.Add, contentDescription = "Add ${preset.name}", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        Spacer(Modifier.height(10.dp))
     }
 }
 

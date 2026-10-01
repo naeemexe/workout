@@ -170,7 +170,7 @@ fun WeightScreen(viewModel: WeightViewModel, snackbar: SnackbarHostState, onBack
         Text("History", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
         if (viewModel.entries.isEmpty()) {
-            Text("Nothing yet. Weigh in at the same time each day for the clearest trend.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Nothing yet. Weigh in at the same time each day.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             LabCard {
                 val list = viewModel.entries

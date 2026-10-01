@@ -376,7 +376,7 @@ private fun EmptyHomeBody(onLogClick: () -> Unit, modifier: Modifier) {
         Text("Your strength graph starts\nwith your first set.", style = MaterialTheme.typography.headlineSmall, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Log what you lift. We'll chart your progress and tell you when it's time to go heavier.",
+            "Log a workout to start your chart.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,

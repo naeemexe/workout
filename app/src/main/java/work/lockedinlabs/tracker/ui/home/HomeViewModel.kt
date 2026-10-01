@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.stateIn
 import work.lockedinlabs.tracker.LockedInApp
 import work.lockedinlabs.tracker.data.ExerciseLog
 import work.lockedinlabs.tracker.data.WorkoutRepository
+import work.lockedinlabs.tracker.data.ProfileRepository
+import work.lockedinlabs.tracker.pack.Level
 import work.lockedinlabs.tracker.data.RuleRepository
 import work.lockedinlabs.tracker.data.ProgressionRule
 import work.lockedinlabs.tracker.data.ruleFor
@@ -26,6 +28,7 @@ import work.lockedinlabs.tracker.domain.Muscle
 import work.lockedinlabs.tracker.domain.MuscleState
 import work.lockedinlabs.tracker.domain.MuscleStats
 import work.lockedinlabs.tracker.domain.ExerciseSeries
+import work.lockedinlabs.tracker.domain.IndexSeries
 import work.lockedinlabs.tracker.domain.Streak
 import work.lockedinlabs.tracker.domain.Progression
 import work.lockedinlabs.tracker.domain.StrengthIndex
@@ -68,13 +71,21 @@ data class HomeUiState(
 }
 
 /** Home reads your logs, plus the progression rules that decide what's ready to step up. */
-class HomeViewModel(repository: WorkoutRepository, rules: RuleRepository, customs: CustomExerciseRepository) : ViewModel() {
+class HomeViewModel(
+    repository: WorkoutRepository,
+    rules: RuleRepository,
+    customs: CustomExerciseRepository,
+    profiles: ProfileRepository,
+) : ViewModel() {
     private val range = MutableStateFlow(ChartRange.MONTH)
 
+    /** The heavy part, redone only when your data changes (not when you switch the chart range). */
+    private val stats = combine(repository.observeAll(), rules.observeRules(), customs.observeAll(), profiles.observe()) { logs, rs, cx, p ->
+        computeStats(logs, LocalDate.now(), rs, cx, Level.of(p?.experience))
+    }.flowOn(Dispatchers.Default)
+
     val state: StateFlow<HomeUiState> =
-        combine(repository.observeAll(), rules.observeRules(), customs.observeAll(), range) { logs, rs, cx, r ->
-            buildHomeState(logs, r, LocalDate.now(), rs, cx)
-        }
+        combine(stats, range) { s, r -> s?.let { forRange(it, r) } ?: HomeUiState(loading = false, range = r) }
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
@@ -86,61 +97,77 @@ class HomeViewModel(repository: WorkoutRepository, rules: RuleRepository, custom
         val Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as LockedInApp
-                HomeViewModel(app.repository, app.ruleRepository, app.customExercises)
+                HomeViewModel(app.repository, app.ruleRepository, app.customExercises, app.profileRepository)
             }
         }
     }
 }
 
-internal fun buildHomeState(
+/** Everything Home shows that doesn't depend on the chart range. */
+internal class HomeStats(
+    val today: LocalDate,
+    val index: IndexSeries,
+    /** Projected index points per day. */
+    val perDay: Double,
+    val streakDays: Int,
+    val readyToStepUp: List<Suggestion>,
+    val muscles: Map<Muscle, MuscleState>,
+)
+
+internal fun computeStats(
     logs: List<ExerciseLog>,
-    range: ChartRange,
     today: LocalDate,
     rules: List<ProgressionRule> = emptyList(),
     customs: List<CustomExercise> = emptyList(),
-): HomeUiState {
-    if (logs.isEmpty()) return HomeUiState(loading = false, range = range)
+    /** Your experience (profile); limits how steep the projection can be. */
+    level: Level? = null,
+): HomeStats? {
+    if (logs.isEmpty()) return null
+    val lookup = customs.lookup()
+    val index = StrengthIndex.compute(logs, today, lookup)
+    val series = index.index
+    val activeSince = today.minusDays(30).toEpochDay()
+    return HomeStats(
+        today = today,
+        index = index,
+        perDay = StrengthIndex.realisticTrend(StrengthIndex.trendPerDay(series), series.last().value, level),
+        streakDays = Streak.days(logs.mapTo(HashSet()) { it.epochDay }, today.toEpochDay()),
+        // Home only shows what you're ready to step up on, most recently trained first.
+        readyToStepUp = logs.groupBy { it.exercise.lowercase() }.values
+            .filter { history -> history.any { it.epochDay >= activeSince } }
+            .mapNotNull { Progression.suggest(it, rules.ruleFor(it.first().exercise)) }
+            .filter { it.advice == Advice.STEP_UP }
+            .sortedByDescending { it.last.epochDay },
+        muscles = MuscleStats.compute(logs, today, lookup),
+    )
+}
 
-    val computed = StrengthIndex.compute(logs, today)
-    val series = computed.index
-    val perDay = StrengthIndex.trendPerDay(series)
-    // Fixed time window: the past fills the left 60% and the projection the right 40%, so today sits at 60%.
+/** Slices the stats to the chart range: the past fills the left 60% and the projection the right 40%. */
+internal fun forRange(s: HomeStats, range: ChartRange): HomeUiState {
+    val series = s.index.index
     // "All" spans from your first log (at least a week).
-    val pastDays = range.days?.toLong() ?: ChronoUnit.DAYS.between(series.first().day, today).coerceAtLeast(7)
+    val pastDays = range.days?.toLong() ?: ChronoUnit.DAYS.between(series.first().day, s.today).coerceAtLeast(7)
     val futureDays = ceil(pastDays * 2 / 3.0).toLong()
-    val windowStart = today.minusDays(pastDays)
+    val windowStart = s.today.minusDays(pastDays)
     val visible = series.filter { !it.day.isBefore(windowStart) }.ifEmpty { series.takeLast(1) }
-    val projection = StrengthIndex.project(series, perDay, futureDays.toInt())
-
     val current = series.last().value
     val start = visible.first().value
-    val t = today.toEpochDay()
-    val activeSince = today.minusDays(30).toEpochDay()
-
-    val suggestions = logs.groupBy { it.exercise.lowercase() }.values
-        .filter { history -> history.any { it.epochDay >= activeSince } }
-        .mapNotNull { Progression.suggest(it, rules.ruleFor(it.first().exercise)) }
-        // Home only shows what you're ready to step up on.
-        .filter { it.advice == Advice.STEP_UP }
-        .sortedByDescending { it.last.epochDay }
-    val trainedDays = logs.mapTo(HashSet()) { it.epochDay }
-
     return HomeUiState(
         loading = false,
         range = range,
         points = visible,
-        projection = projection,
+        projection = StrengthIndex.project(series, s.perDay, futureDays.toInt()),
         chartStart = windowStart,
-        chartEnd = today.plusDays(futureDays),
+        chartEnd = s.today.plusDays(futureDays),
         current = current,
         change = current - start,
         changePct = if (start > 0) (current - start) / start * 100 else 0.0,
-        trendPerWeek = perDay * 7,
-        streakDays = Streak.days(trainedDays, t),
-        readyToStepUp = suggestions,
-        exercises = computed.exercises.mapNotNull { e ->
+        trendPerWeek = s.perDay * 7,
+        streakDays = s.streakDays,
+        readyToStepUp = s.readyToStepUp,
+        exercises = s.index.exercises.mapNotNull { e ->
             e.points.filter { !it.day.isBefore(windowStart) }.takeIf { it.isNotEmpty() }?.let { e.copy(points = it) }
         },
-        muscles = MuscleStats.compute(logs, today, customs.lookup()),
+        muscles = s.muscles,
     )
 }

@@ -37,6 +37,7 @@ class ProfileViewModel(
     workouts: WorkoutRepository,
     private val auth: AuthRepository,
     private val sync: SyncManager,
+    private val eraseLocalData: suspend () -> Unit,
 ) : ViewModel() {
     var profile by mutableStateOf(Profile())
         private set
@@ -119,6 +120,39 @@ class ProfileViewModel(
         }
     }
 
+    var deleting by mutableStateOf(false)
+        private set
+    var deleteError by mutableStateOf<String?>(null)
+        private set
+    /** This phone's data was erased too; the app restarts from the welcome screen. */
+    var erased by mutableStateOf(false)
+        private set
+
+    /**
+     * Deletes the account: confirms with Google, removes every backup in the cloud, then the sign-in itself.
+     * With [eraseLocal], this phone's workouts, plans and settings go as well.
+     */
+    fun deleteAccount(activityContext: Context, eraseLocal: Boolean) {
+        if (deleting) return
+        deleting = true
+        deleteError = null
+        viewModelScope.launch {
+            runCatching {
+                auth.reauthenticate(activityContext)
+                val uid = auth.currentUser?.uid ?: error("Not signed in")
+                sync.deleteCloudData(uid)
+                auth.deleteUser()
+                auth.signOut(activityContext)
+                sync.signedOut()
+                if (eraseLocal) {
+                    eraseLocalData()
+                    erased = true
+                }
+            }.onFailure { e -> if (e !is SignInCancelled) deleteError = e.message ?: "Couldn't delete the account. Try again." }
+            deleting = false
+        }
+    }
+
     fun onName(v: String) { if (v.length <= 40) update { it.copy(name = v) } }
 
     fun onHeightFt(v: String) { if (v.isEmpty() || FEET_INPUT.matches(v)) { heightFt = v; updateHeight() } }
@@ -156,7 +190,7 @@ class ProfileViewModel(
         val Factory = viewModelFactory {
             initializer {
                 val app = this[APPLICATION_KEY] as LockedInApp
-                ProfileViewModel(app.profileRepository, app.repository, app.auth, app.sync)
+                ProfileViewModel(app.profileRepository, app.repository, app.auth, app.sync, app::eraseLocalData)
             }
         }
     }

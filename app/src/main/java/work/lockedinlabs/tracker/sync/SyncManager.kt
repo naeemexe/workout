@@ -113,6 +113,23 @@ class SyncManager(
         }
     }
 
+    /**
+     * Deletes everything this account has in the cloud: every day document, then the user document.
+     * Runs under the sync lock so an upload can't race it.
+     */
+    suspend fun deleteCloudData(uid: String) = mutex.withLock {
+        scheduled?.cancel()
+        val user = firestore.collection("users").document(uid)
+        while (true) {
+            val days = user.collection("days").limit(400).get(Source.SERVER).await()
+            if (days.isEmpty) break
+            firestore.batch().apply { days.documents.forEach { delete(it.reference) } }.commit().await()
+        }
+        user.delete().await()
+        store.forgetAccount()
+        _status.value = SyncStatus.SignedOut
+    }
+
     fun signedOut() {
         scheduled?.cancel()
         _status.value = SyncStatus.SignedOut

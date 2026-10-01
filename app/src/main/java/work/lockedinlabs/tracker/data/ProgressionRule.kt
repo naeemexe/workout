@@ -9,6 +9,8 @@ import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 import work.lockedinlabs.tracker.domain.Rule
+import work.lockedinlabs.tracker.pack.Pack
+import work.lockedinlabs.tracker.pack.PresetProgression
 
 /**
  * A named progression rule (Plan tab) and the exercises that follow it. Exactly one is the default,
@@ -38,8 +40,19 @@ data class ProgressionRule(
     companion object {
         fun encode(targets: List<Int>) = targets.joinToString(",")
 
-        /** 2 sets of 10 (the original "50 lb × 10 for 2 sets → step up"), auto step, restart at 8, drop 10% after 2 rough sessions. */
-        fun starterDefault() = ProgressionRule(name = "Standard", isDefault = true)
+        /** A rule set up like a ready-made plan from the data pack. */
+        fun from(preset: PresetProgression, name: String = preset.name, isDefault: Boolean = false) = ProgressionRule(
+            name = name,
+            isDefault = isDefault,
+            setReps = encode(preset.setReps),
+            increment = preset.increment,
+            startReps = preset.startReps,
+            minReps = preset.minReps,
+            dropPct = preset.dropPct,
+        )
+
+        /** The data pack's default plan, created on first launch. */
+        fun starterDefault() = from(Pack.current.progressionPlans.first { it.isDefault }, isDefault = true)
     }
 }
 

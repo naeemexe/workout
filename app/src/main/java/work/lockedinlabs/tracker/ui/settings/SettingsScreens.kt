@@ -44,6 +44,8 @@ import work.lockedinlabs.tracker.ui.theme.LabCard
 /** Where "Contact support" and the website link go. */
 private const val SUPPORT_EMAIL = "support@lockedinlabs.work"
 private const val WEBSITE = "https://lockedinlabs.work"
+/** Host docs/privacy-policy.md here before release (Play needs a public privacy policy URL). */
+private const val PRIVACY_URL = "$WEBSITE/privacy"
 
 @Composable
 private fun SubScreen(title: String, onBack: () -> Unit, modifier: Modifier, content: @Composable ColumnScope.() -> Unit) {
@@ -114,26 +116,32 @@ fun SupportScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         LabCard {
             Faq(
                 "What is the Strength Index?",
-                "It starts at 100. Each exercise is scored by your estimated one-rep max compared with the first time " +
-                    "you logged it, and the index averages them. After 2 days without training it slowly drifts down, " +
-                    "so the line tells you when to get back in.",
+                "Your average strength, starting at 100. It holds for about 3 weeks off.",
             )
             FaqDivider()
             Faq(
                 "When does it tell me to step up?",
-                "When your first sets hit the reps in the exercise's progression plan. " +
-                    "Set this up in More → Progression plans.",
+                "When your first sets hit their reps. Change the reps in More → Progression plans.",
             )
             FaqDivider()
             Faq(
                 "How does my session plan rotate?",
-                "It moves to the next session only after you train. Miss a day and it waits for you. Planned rest days " +
-                    "pass on their own. Choosing Rest or Custom on the Log tab doesn't move it.",
+                "It moves on after you train. Miss a day and it waits.",
+            )
+            FaqDivider()
+            Faq(
+                "What does the muscle map show?",
+                "Sets per muscle in the last week. 10 or more fills it in.",
             )
             FaqDivider()
             Faq(
                 "Where is my data?",
-                "On this phone. Sign in with Google in Profile to back it up and restore it on a new phone.",
+                "On this phone. Sign in with Google in Profile to back it up.",
+            )
+            FaqDivider()
+            Faq(
+                "How do I delete my account?",
+                "Profile, then Delete account.",
             )
         }
 
@@ -149,6 +157,10 @@ fun SupportScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             FaqDivider()
             LinkRow("Website", WEBSITE.removePrefix("https://")) {
                 context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(WEBSITE)))
+            }
+            FaqDivider()
+            LinkRow("Privacy policy", "") {
+                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_URL)))
             }
         }
 

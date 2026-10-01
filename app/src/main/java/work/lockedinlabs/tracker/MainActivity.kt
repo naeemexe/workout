@@ -47,6 +47,8 @@ import androidx.compose.material.icons.filled.Menu
 import work.lockedinlabs.tracker.ui.plan.RulesViewModel
 import work.lockedinlabs.tracker.ui.plan.PlanScreen
 import work.lockedinlabs.tracker.ui.plan.PlanViewModel
+import work.lockedinlabs.tracker.ui.plan.PresetPlanScreen
+import work.lockedinlabs.tracker.pack.Level
 import work.lockedinlabs.tracker.ui.profile.ProfileScreen
 import work.lockedinlabs.tracker.ui.profile.ProfileViewModel
 import work.lockedinlabs.tracker.ui.weight.WeightScreen
@@ -67,6 +69,11 @@ import work.lockedinlabs.tracker.data.ThemeMode
 import work.lockedinlabs.tracker.ui.AccountDrawer
 import work.lockedinlabs.tracker.ui.settings.SettingsScreen
 import work.lockedinlabs.tracker.ui.settings.SupportScreen
+import work.lockedinlabs.tracker.ui.onboarding.OnboardingScreen
+import work.lockedinlabs.tracker.ui.onboarding.OnboardingViewModel
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -86,7 +93,14 @@ class MainActivity : ComponentActivity() {
                 enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
                 onDispose {}
             }
-            LockedInTheme(dark) { AppShell(mode, settings::setThemeMode) }
+            LockedInTheme(dark) {
+                val onboarding: OnboardingViewModel = viewModel(factory = OnboardingViewModel.Factory)
+                when (onboarding.needed) {
+                    null -> Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) // checking, a moment
+                    true -> OnboardingScreen(onboarding)
+                    false -> AppShell(mode, settings::setThemeMode)
+                }
+            }
         }
     }
 }
@@ -117,7 +131,7 @@ private fun AppShell(
     val exercisesVm: ExercisesViewModel = viewModel(factory = ExercisesViewModel.Factory)
     var moreRoute by rememberSaveable { mutableStateOf(MoreRoute.MAIN) }
     /** Back to the More menu, closing any editor. */
-    fun moreHome() { planVm.closeEditor(); rulesVm.close(); exercisesVm.close(); moreRoute = MoreRoute.MAIN }
+    fun moreHome() { planVm.closeEditor(); planVm.closePreset(); rulesVm.close(); exercisesVm.close(); moreRoute = MoreRoute.MAIN }
     val profileVm: ProfileViewModel = viewModel(factory = ProfileViewModel.Factory)
     val weightVm: WeightViewModel = viewModel(factory = WeightViewModel.Factory)
     // The weight page opens from Home or Profile; Back returns to whichever it came from.
@@ -136,6 +150,7 @@ private fun AppShell(
             tab == Tab.HOME -> homeRoute = if (homeRoute == HomeRoute.WEIGHT) weightReturn else HomeRoute.MAIN
             tab == Tab.MORE && rulesVm.editingId != null -> rulesVm.close()
             tab == Tab.MORE && planVm.editingId != null -> planVm.closeEditor()
+            tab == Tab.MORE && planVm.preview != null -> planVm.closePreset()
             tab == Tab.MORE && exercisesVm.selected != null -> exercisesVm.close()
             tab == Tab.MORE && moreRoute != MoreRoute.MAIN -> moreRoute = MoreRoute.MAIN
             else -> tab = Tab.HOME
@@ -225,8 +240,16 @@ private fun AppShell(
                         Tab.MORE -> when {
                             rulesVm.editingId != null -> RuleScreen(rulesVm, onBack = rulesVm::close, modifier = content)
                             planVm.editingId != null -> PlanScreen(planVm, onBack = planVm::closeEditor, modifier = content)
+                            planVm.preview != null -> planVm.preview?.let { p ->
+                                PresetPlanScreen(p, onUse = { planVm.usePreset(p) }, onBack = planVm::closePreset, modifier = content)
+                            }
                             exercisesVm.selected != null -> ExerciseDetailScreen(exercisesVm, onBack = exercisesVm::close, modifier = content)
-                            moreRoute == MoreRoute.PLANS -> PlansScreen(planVm, onBack = { moreRoute = MoreRoute.MAIN }, modifier = content)
+                            moreRoute == MoreRoute.PLANS -> PlansScreen(
+                                planVm,
+                                level = Level.of(profileVm.profile.experience),
+                                onBack = { moreRoute = MoreRoute.MAIN },
+                                modifier = content,
+                            )
                             moreRoute == MoreRoute.PROGRESSION -> RulesScreen(rulesVm, onBack = { moreRoute = MoreRoute.MAIN }, modifier = content)
                             moreRoute == MoreRoute.EXERCISES -> ExercisesScreen(exercisesVm, onBack = { moreRoute = MoreRoute.MAIN }, modifier = content)
                             else -> {

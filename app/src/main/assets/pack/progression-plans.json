@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "about": "Ready-made progression plans offered in More > Progression plans. Double progression: stay at a weight until your first sets hit setReps in order, then add weight (increment lb, 0 = auto: 2.5 under 30 lb, else 5) and restart at startReps. Two sessions in a row with a counted set under minReps lowers the weight by dropPct percent. The plan marked default is created on first launch. Rep ranges follow the ACSM progression models (1-6 reps strength, 6-12 muscle, 12+ endurance).",
+  "plans": [
+    {
+      "id": "standard",
+      "name": "Standard",
+      "default": true,
+      "summary": "2 sets of 10, then add weight.",
+      "setReps": [10, 10],
+      "increment": 0,
+      "startReps": 8,
+      "minReps": 6,
+      "dropPct": 10
+    },
+    {
+      "id": "strength",
+      "name": "Strength",
+      "summary": "3 sets of 5 on heavy lifts, then add weight.",
+      "setReps": [5, 5, 5],
+      "increment": 0,
+      "startReps": 3,
+      "minReps": 3,
+      "dropPct": 10
+    },
+    {
+      "id": "muscle",
+      "name": "Muscle",
+      "summary": "3 sets of 12, then add weight.",
+      "setReps": [12, 12, 12],
+      "increment": 0,
+      "startReps": 8,
+      "minReps": 6,
+      "dropPct": 10
+    },
+    {
+      "id": "light",
+      "name": "Light isolation",
+      "summary": "3 sets of 15 for small muscles.",
+      "setReps": [15, 15, 15],
+      "increment": 2.5,
+      "startReps": 10,
+      "minReps": 8,
+      "dropPct": 10
+    }
+  ]
+}

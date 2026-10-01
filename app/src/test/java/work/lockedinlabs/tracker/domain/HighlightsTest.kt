@@ -2,8 +2,11 @@ package work.lockedinlabs.tracker.domain
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import work.lockedinlabs.tracker.pack.TestPack
 
 class HighlightsTest {
+    init { TestPack.install() }
+
     private val today = 20_000L
 
     @Test fun `streak survives normal rest days`() {

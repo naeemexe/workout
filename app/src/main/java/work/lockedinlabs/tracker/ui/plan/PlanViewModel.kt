@@ -25,6 +25,7 @@ import work.lockedinlabs.tracker.domain.ExerciseCatalog
 import work.lockedinlabs.tracker.domain.Rotation
 import work.lockedinlabs.tracker.sync.SyncManager
 import work.lockedinlabs.tracker.ui.theme.DayColors
+import work.lockedinlabs.tracker.pack.PresetPlan
 
 /**
  * The Plan tab: your list of plans, and the editor for one of them.
@@ -114,6 +115,28 @@ class PlanViewModel(
             val id = plans.createPlan(name, activate = allPlans.none { it.plan.isActive })
             openPlan(id)
         }
+    }
+
+    /** Ready-made plan being previewed (null = none). */
+    var preview by mutableStateOf<PresetPlan?>(null)
+        private set
+
+    fun openPreset(preset: PresetPlan) { preview = preset }
+    fun closePreset() { preview = null }
+
+    /** Adds a copy of [preset] you can edit, makes it your active plan, and opens it. */
+    fun usePreset(preset: PresetPlan) {
+        viewModelScope.launch {
+            val id = plans.createFromPreset(preset, uniqueName(preset.name), activate = true)
+            preview = null
+            openPlan(id)
+        }
+    }
+
+    /** [base], or "[base] 2", "[base] 3", ... if a plan already has that name. */
+    private fun uniqueName(base: String): String {
+        val taken = allPlans.map { it.plan.displayName.lowercase() }.toSet()
+        return generateSequence(1) { it + 1 }.map { if (it == 1) base else "$base $it" }.first { it.lowercase() !in taken }
     }
 
     fun onPlanName(v: String) {

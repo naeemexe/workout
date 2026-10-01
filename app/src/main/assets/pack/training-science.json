@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "about": "Numbers behind the Strength Index, the muscle map and the streak. Change them here; the app logic reads them at start-up.",
+  "strength": {
+    "about": "Each exercise is scored by estimated 1 rep max (Epley) against the first time you logged it. An exercise only detrains when none of its main muscles have been trained for graceDays: trained lifters keep their maximal strength for about 3 weeks off, then lose roughly 7 to 12 percent over the next 2 to 3 months (Bosquet 2013, Mujika & Padilla 2000). It never drops below detrainingFloor times its level. A worse session than usual only pulls the level part of the way down (dipWeight).",
+    "detrainingGraceDays": 21,
+    "detrainingDailyLoss": 0.0015,
+    "detrainingFloor": 0.85,
+    "dipWeight": 0.3,
+    "trendWindowDays": 28,
+    "trendHalfLifeDays": 7,
+    "projectionMaxWeeklyChange": {
+      "about": "The projection never climbs or falls faster than this share of the index per week. Reported strength gains shrink with experience: about 40 percent for untrained people, 20 percent moderately trained, 16 percent trained and 10 percent advanced, over weeks to 2 years of training (Kraemer 2002, ACSM 2009).",
+      "Beginner": 0.02,
+      "Intermediate": 0.005,
+      "Advanced": 0.0025,
+      "unknown": "Beginner"
+    }
+  },
+  "muscles": {
+    "about": "Muscle map: hard sets per muscle over the last week, against weeklyTargetSets. About 10 or more weekly sets per muscle gives more growth than fewer (Schoenfeld 2017). A secondary muscle counts as half a set (fractional sets, Pelland 2024). Sets in the last fullDays count fully, then fade out over fadeDays. Sets for one muscle in one session count up to maxSetsPerSession.",
+    "weeklyTargetSets": 10,
+    "secondaryShare": 0.5,
+    "fullDays": 7,
+    "fadeDays": 7,
+    "maxSetsPerSession": 10,
+    "attentionBelow": 0.5,
+    "attentionWithinDays": 60
+  },
+  "streak": {
+    "about": "The streak stays alive through normal rest: up to maxRestDays in a row without training.",
+    "maxRestDays": 2
+  },
+  "sources": [
+    "Bosquet L et al. Effect of training cessation on muscular performance: a meta-analysis. Scand J Med Sci Sports. 2013;23(3):e140-9.",
+    "Mujika I, Padilla S. Detraining: loss of training-induced physiological and performance adaptations. Part I: short term insufficient training stimulus. Sports Med. 2000;30(2):79-87.",
+    "Mujika I, Padilla S. Detraining: loss of training-induced physiological and performance adaptations. Part II: long term insufficient training stimulus. Sports Med. 2000;30(3):145-54.",
+    "American College of Sports Medicine. Progression models in resistance training for healthy adults. Med Sci Sports Exerc. 2009;41(3):687-708.",
+    "Kraemer WJ et al. ACSM position stand: progression models in resistance training for healthy adults. Med Sci Sports Exerc. 2002;34(2):364-80.",
+    "Schoenfeld BJ, Ogborn D, Krieger JW. Dose-response relationship between weekly resistance training volume and increases in muscle mass. J Sports Sci. 2017;35(11):1073-82.",
+    "Pelland JC et al. The resistance training dose-response: meta-regressions exploring the effects of weekly volume and frequency on muscle hypertrophy and strength gain. SportRxiv preprint. 2024.",
+    "Epley B. Poundage chart. Boyd Epley Workout. 1985."
+  ]
+}

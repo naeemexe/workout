@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import work.lockedinlabs.tracker.pack.PresetPlan
 import work.lockedinlabs.tracker.sync.ChangeTracker
 import java.time.LocalDate
 
@@ -33,6 +34,23 @@ class PlanRepository(private val dao: PlanDao, private val changes: ChangeTracke
     /** New empty plan; it becomes active when no other plan is. Returns its id. */
     suspend fun createPlan(name: String, activate: Boolean): Long {
         val id = dao.insertPlan(Plan(name = name))
+        if (activate) dao.activate(id, LocalDate.now().toEpochDay())
+        changes.planChanged()
+        return id
+    }
+
+    /**
+     * A copy of a ready-made plan you can edit, named [name]; active straight away when [activate]. Workout days get
+     * color tags in order. Returns its id.
+     */
+    suspend fun createFromPreset(preset: PresetPlan, name: String, activate: Boolean): Long {
+        val id = dao.insertPlan(Plan(name = name))
+        var color = 0
+        dao.upsertAll(preset.days.mapIndexed { i, d ->
+            if (d.isRest) PlanDay(i, isRest = true, planId = id)
+            else PlanDay(i, d.name, exercises = d.exercises.map { it.name }, planId = id, color = color++)
+                .withSets(d.exercises.map { it.sets })
+        })
         if (activate) dao.activate(id, LocalDate.now().toEpochDay())
         changes.planChanged()
         return id

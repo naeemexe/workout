@@ -307,8 +307,7 @@ fun ExerciseDetailScreen(viewModel: ExercisesViewModel, onBack: () -> Unit, modi
         } else {
             Text("Muscles", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text(
-                "Tap once for a main muscle, again for assisting, again to clear. " +
-                    if (e.primary.isEmpty()) "Pick at least one main muscle so it counts on your muscle map." else "It counts on your muscle map.",
+                "Tap once for main, twice for assisting.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )

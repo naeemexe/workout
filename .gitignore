@@ -12,3 +12,7 @@
 .kotlin/
 # Firebase config for this app's project: kept out of the public repo. Add your own copy to app/.
 /app/google-services.json
+# Release signing: the upload key and its passwords stay on your machine (back them up).
+/keystore.properties
+*.jks
+*.keystore

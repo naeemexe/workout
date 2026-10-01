@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import work.lockedinlabs.tracker.pack.PresetProgression
 import work.lockedinlabs.tracker.sync.ChangeTracker
 
 /** Progression rules. They back up together with your plans. */
@@ -21,9 +22,9 @@ class RuleRepository(private val dao: ProgressionRuleDao, private val changes: C
         if (dao.getAll().isEmpty()) dao.insert(ProgressionRule.starterDefault())
     }
 
-    /** A new rule named [name], as saved (with its id). */
-    suspend fun create(name: String): ProgressionRule {
-        val rule = ProgressionRule(name = name)
+    /** A new rule named [name] (set up like [preset], if given), as saved (with its id). */
+    suspend fun create(name: String, preset: PresetProgression? = null): ProgressionRule {
+        val rule = preset?.let { ProgressionRule.from(it, name) } ?: ProgressionRule(name = name)
         val id = dao.insert(rule)
         changes.planChanged()
         return rule.copy(id = id)

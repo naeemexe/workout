@@ -16,6 +16,7 @@ import work.lockedinlabs.tracker.data.ProgressionRule
 import work.lockedinlabs.tracker.data.RuleRepository
 import work.lockedinlabs.tracker.data.WorkoutRepository
 import work.lockedinlabs.tracker.domain.ExerciseCatalog
+import work.lockedinlabs.tracker.pack.PresetProgression
 
 /** Progression rules on the Plan tab: the list, and an editor that saves as you go. */
 class RulesViewModel(private val repo: RuleRepository, workouts: WorkoutRepository) : ViewModel() {
@@ -72,11 +73,13 @@ class RulesViewModel(private val repo: RuleRepository, workouts: WorkoutReposito
         draft = null
     }
 
-    fun create() {
+    /** A new rule (set up like [preset], if given), opened for editing. */
+    fun create(preset: PresetProgression? = null) {
         viewModelScope.launch {
             val taken = rules.map { it.displayName.lowercase() }.toSet()
-            val name = generateSequence(rules.size + 1) { it + 1 }.map { "Progression $it" }.first { it.lowercase() !in taken }
-            open(repo.create(name))
+            val names = if (preset != null) generateSequence(1) { it + 1 }.map { if (it == 1) preset.name else "${preset.name} $it" }
+            else generateSequence(rules.size + 1) { it + 1 }.map { "Progression $it" }
+            open(repo.create(names.first { it.lowercase() !in taken }, preset))
         }
     }
 

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -8,19 +10,36 @@ plugins {
 
 android {
     namespace = "work.lockedinlabs.tracker"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "work.lockedinlabs.tracker"
         minSdk = 26
-        targetSdk = 35
+        // Google Play requires new apps to target a recent Android version (36 = Android 16).
+        targetSdk = 36
+        // Raise versionCode by 1 for every upload to Play.
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
+    }
+
+    // Upload key for Play, from keystore.properties in the project root (never committed). See docs/PLAY_STORE.md.
+    val keystoreFile = rootProject.file("keystore.properties")
+    val uploadKey = if (keystoreFile.exists()) Properties().apply { keystoreFile.inputStream().use(::load) } else null
+    signingConfigs {
+        if (uploadKey != null) create("upload") {
+            storeFile = rootProject.file(uploadKey.getProperty("storeFile"))
+            storePassword = uploadKey.getProperty("storePassword")
+            keyAlias = uploadKey.getProperty("keyAlias")
+            keyPassword = uploadKey.getProperty("keyPassword")
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            signingConfig = signingConfigs.findByName("upload")
         }
     }
     compileOptions {
@@ -70,4 +89,5 @@ dependencies {
     implementation(libs.kotlinx.coroutines.play.services)
 
     testImplementation(libs.junit)
+    testImplementation(libs.org.json)
 }

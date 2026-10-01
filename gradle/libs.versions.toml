@@ -8,6 +8,7 @@ activityCompose = "1.9.3"
 composeBom = "2024.12.01"
 room = "2.8.5"
 junit = "4.13.2"
+orgJson = "20250517"
 googleServices = "4.5.0"
 firebaseBom = "34.19.0"
 credentials = "1.5.0"
@@ -36,6 +37,8 @@ androidx-credentials-play-services = { group = "androidx.credentials", name = "c
 googleid = { group = "com.google.android.libraries.identity.googleid", name = "googleid", version.ref = "googleId" }
 kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "coroutinesPlayServices" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+# Android ships org.json; local unit tests need a real copy to read the data pack.
+org-json = { group = "org.json", name = "json", version.ref = "orgJson" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

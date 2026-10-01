@@ -25,6 +25,14 @@ class SettingsStore(context: Context) {
         _restSeconds.value = seconds
     }
 
+    /** The first-launch welcome has been finished (or skipped because there was data already). */
+    var onboarded: Boolean
+        get() = prefs.getBoolean(ONBOARDED, false)
+        set(value) = prefs.edit { putBoolean(ONBOARDED, value) }
+
+    /** Back to first-launch defaults (erasing this phone's data). */
+    fun clear() = prefs.edit(commit = true) { clear() }
+
     fun setThemeMode(mode: ThemeMode) {
         prefs.edit { putString(THEME, mode.name) }
         _themeMode.value = mode
@@ -33,6 +41,7 @@ class SettingsStore(context: Context) {
     companion object {
         private const val THEME = "theme_mode"
         private const val REST = "rest_seconds"
+        private const val ONBOARDED = "onboarded"
         val REST_CHOICES = listOf(30, 60, 90, 120, 150, 180, 240, 300)
     }
 }

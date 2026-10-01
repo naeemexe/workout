@@ -85,12 +85,14 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import work.lockedinlabs.tracker.data.PlanDay
 import work.lockedinlabs.tracker.domain.ExerciseCatalog
+import work.lockedinlabs.tracker.pack.Level
+import work.lockedinlabs.tracker.pack.Pack
 import work.lockedinlabs.tracker.ui.theme.LabCard
 import work.lockedinlabs.tracker.ui.more.BackHeader
 
 /** Plan tab: your plans (tap one to edit it), the active one marked, and "Create custom plan". */
 @Composable
-fun PlansScreen(viewModel: PlanViewModel, onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun PlansScreen(viewModel: PlanViewModel, level: Level?, onBack: () -> Unit, modifier: Modifier = Modifier) {
     Column(modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
         Spacer(Modifier.height(8.dp))
         BackHeader("Session plans", onBack)
@@ -140,6 +142,13 @@ fun PlansScreen(viewModel: PlanViewModel, onBack: () -> Unit, modifier: Modifier
             Text("Create session plan", style = MaterialTheme.typography.titleSmall)
         }
         Spacer(Modifier.height(24.dp))
+        Text("Ready-made plans", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 4.dp))
+        Spacer(Modifier.height(10.dp))
+        Pack.current.sessionPlans.forLevel(level).forEach { preset ->
+            PresetPlanCard(preset, recommended = level != null && preset.levels.first() == level, onClick = { viewModel.openPreset(preset) })
+            Spacer(Modifier.height(10.dp))
+        }
+        Spacer(Modifier.height(14.dp))
     }
 }
 
@@ -257,8 +266,7 @@ fun PlanScreen(viewModel: PlanViewModel, onBack: () -> Unit, modifier: Modifier 
             title = { Text("Delete ${plan.displayName}?") },
             text = {
                 Text(
-                    if (plan.isActive) "This is your active plan. The Log tab will have no plan days until you pick another plan. Your logged workouts stay."
-                    else "Your logged workouts stay.",
+                    if (plan.isActive) "This is your active plan. Your logged workouts stay." else "Your logged workouts stay.",
                 )
             },
             confirmButton = {

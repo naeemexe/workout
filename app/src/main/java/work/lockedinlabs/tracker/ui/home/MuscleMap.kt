@@ -38,21 +38,21 @@ import work.lockedinlabs.tracker.domain.MuscleStats
 import work.lockedinlabs.tracker.ui.theme.LabCard
 import kotlin.math.atan2
 import kotlin.math.hypot
+import work.lockedinlabs.tracker.domain.plainNumber
+import work.lockedinlabs.tracker.pack.Pack
 
-/** Home card: front + back body with each muscle colored by how fresh it is. */
+/** Home card: front + back body with each muscle colored by its sets this week against the weekly target. */
 @Composable
 fun MuscleMapCard(muscles: Map<Muscle, MuscleState>) {
     val anyTrained = muscles.values.any { it.daysSinceTrained != null }
     LabCard {
         Column(Modifier.padding(16.dp)) {
             Text("Muscle map", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            if (!anyTrained) {
-                Text(
-                    "Log exercises from the suggestions to light up your muscles.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            Text(
+                if (anyTrained) "Sets per muscle this week" else "Log a workout to see the muscles you train.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Spacer(Modifier.height(12.dp))
             MuscleFigures(muscles)
             Spacer(Modifier.height(12.dp))
@@ -66,7 +66,7 @@ fun MuscleMapCard(muscles: Map<Muscle, MuscleState>) {
                     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
                         Text(m.label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
                         Text(
-                            "${s.daysSinceTrained}d ago",
+                            setsLabel(s.weeklySets),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -77,7 +77,7 @@ fun MuscleMapCard(muscles: Map<Muscle, MuscleState>) {
     }
 }
 
-/** Front and back figures side by side, each muscle tinted by its intensity (0 = faded, 1 = full color). */
+/** Front and back figures side by side, each muscle tinted by its intensity (0 = no sets lately, 1 = weekly target met). */
 @Composable
 fun MuscleFigures(muscles: Map<Muscle, MuscleState>, modifier: Modifier = Modifier) {
     Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = modifier.fillMaxWidth()) {
@@ -90,7 +90,7 @@ fun MuscleFigures(muscles: Map<Muscle, MuscleState>, modifier: Modifier = Modifi
 private fun Legend() {
     val (inactive, active) = muscleColors()
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("Faded", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("0", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.width(8.dp))
         Box(
             Modifier
@@ -100,8 +100,14 @@ private fun Legend() {
                 .background(Brush.horizontalGradient(listOf(inactive, active))),
         )
         Spacer(Modifier.width(8.dp))
-        Text("Fresh", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("${plainNumber(Pack.science.muscles.weeklyTargetSets)}+ sets", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
+}
+
+/** "3 sets", "1.5 sets", "1 set" */
+private fun setsLabel(sets: Double): String {
+    val n = Math.round(sets * 2) / 2.0
+    return "${plainNumber(n)} set" + if (n == 1.0) "" else "s"
 }
 
 @Composable

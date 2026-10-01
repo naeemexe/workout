@@ -31,6 +31,22 @@ class AuthRepository(private val auth: FirebaseAuth) {
 
     /** @param activityContext must be an Activity context so the account picker can show. */
     suspend fun signInWithGoogle(activityContext: Context): Result<FirebaseUser> = runCatching {
+        auth.signInWithCredential(GoogleAuthProvider.getCredential(googleIdToken(activityContext), null)).await().user
+            ?: error("Sign-in returned no user")
+    }
+
+    /** Asks you to pick your Google account again; Firebase wants a fresh sign-in before deleting an account. */
+    suspend fun reauthenticate(activityContext: Context) {
+        val user = auth.currentUser ?: error("Not signed in")
+        user.reauthenticate(GoogleAuthProvider.getCredential(googleIdToken(activityContext), null)).await()
+    }
+
+    /** Deletes the Firebase account itself (sign-in is gone; the cloud data must be deleted first). */
+    suspend fun deleteUser() {
+        auth.currentUser?.delete()?.await()
+    }
+
+    private suspend fun googleIdToken(activityContext: Context): String {
         val option = GetSignInWithGoogleOption.Builder(activityContext.getString(R.string.default_web_client_id)).build()
         val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
         val credential = try {
@@ -45,9 +61,7 @@ class AuthRepository(private val auth: FirebaseAuth) {
         require(credential is CustomCredential && credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL) {
             "Unexpected sign-in response"
         }
-        val idToken = GoogleIdTokenCredential.createFrom(credential.data).idToken
-        auth.signInWithCredential(GoogleAuthProvider.getCredential(idToken, null)).await().user
-            ?: error("Sign-in returned no user")
+        return GoogleIdTokenCredential.createFrom(credential.data).idToken
     }
 
     suspend fun signOut(context: Context) {
