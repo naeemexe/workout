@@ -43,6 +43,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SuggestionChip
+import androidx.compose.material3.Surface
 import androidx.compose.material3.SuggestionChipDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -67,13 +68,9 @@ import work.lockedinlabs.tracker.ui.plan.forLevel
 @Composable
 fun OnboardingScreen(viewModel: OnboardingViewModel) {
     BackHandler(enabled = viewModel.step != OnboardingStep.WELCOME, onBack = viewModel::back)
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .safeDrawingPadding()
-            .imePadding(),
-    ) {
+    // Surface sets the text color for the theme (light text in dark mode), as Scaffold does for the main app.
+    Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().safeDrawingPadding().imePadding()) {
         AnimatedContent(
             targetState = viewModel.step,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
@@ -87,6 +84,7 @@ fun OnboardingScreen(viewModel: OnboardingViewModel) {
             }
         }
     }
+}
 }
 
 @Composable
