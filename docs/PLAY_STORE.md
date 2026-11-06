@@ -67,7 +67,8 @@ Done: both are static pages in the naeemexe/lockedinlabs-website repo (GitHub Pa
 - `https://lockedinlabs.work/privacy`: from `docs/privacy-policy.md` (the app's Help & support links here).
 - `https://lockedinlabs.work/delete-account`: from `docs/delete-account.md` (Play asks for an account deletion URL).
 
-Check that `support@lockedinlabs.work` exists and is read; it's in the app, the policy and the listing.
+`support@` and `hello@lockedinlabs.work` forward to hello.lockedinlabs@gmail.com (Porkbun email forwarding). Check
+that inbox; the address is in the app, the policy and the listing.
 
 ## 6. Play Console
 
