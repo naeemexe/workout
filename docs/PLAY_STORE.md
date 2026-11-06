@@ -62,6 +62,8 @@ service cloud.firestore {
 
 ## 5. Host two pages on lockedinlabs.work
 
+Done: both are static pages in the naeemexe/lockedinlabs-website repo (GitHub Pages). Keep them matched to `docs/`.
+
 - `https://lockedinlabs.work/privacy`: from `docs/privacy-policy.md` (the app's Help & support links here).
 - `https://lockedinlabs.work/delete-account`: from `docs/delete-account.md` (Play asks for an account deletion URL).
 

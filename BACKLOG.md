@@ -21,9 +21,8 @@ For a bug, write what you did, what happened, what you expected, and the date if
 
 ## Before launch: accounts and Play (see docs/PLAY_STORE.md)
 
-- **(you)** Host docs/privacy-policy.md at lockedinlabs.work/privacy and docs/delete-account.md at
-  lockedinlabs.work/delete-account.
-- **(you)** Confirm support@lockedinlabs.work is a real inbox (it's in the app, policy and listing).
+- **(you)** Set up email for lockedinlabs.work. The domain has no MX records, so support@ can't receive mail, and
+  it's in the app, policy, delete-account page and listing.
 - **(you)** Play Console: declare the rest timer foreground service (`specialUse`, see docs/PLAY_STORE.md).
 - **(you)** Play Console: listing, data safety, content rating, closed test (12 testers for 14 days).
 - **(you)** Test end to end on a real Google account: sign-in, backup restore from the welcome screen, delete account

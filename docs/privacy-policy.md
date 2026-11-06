@@ -1,6 +1,6 @@
 # Locked In privacy policy
 
-**Effective:** October 1, 2026
+**Effective:** November 6, 2026
 **Developer:** Locked In Labs (lockedinlabs.work)
 **Contact:** support@lockedinlabs.work
 
@@ -8,7 +8,7 @@ Locked In is a workout tracker. This policy explains what it stores, where, and 
 
 ## What the app stores
 
-- **Workouts:** exercises, sets, weights, reps and dates you log.
+- **Workouts:** exercises, sets, weights, reps, hold times, cardio time and distance, and dates you log.
 - **Plans:** your session plans, progression plans and custom exercises.
 - **Profile (optional):** name, avatar choice, birth year, height, body weight, goal and experience level.
 - **Settings:** theme and rest timer length.

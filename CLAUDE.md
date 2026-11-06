@@ -44,7 +44,8 @@ don't add dependencies unless asked.
   not in `strings.xml`.
 - `app/src/main/assets/pack/`: exercises, preset session plans, preset progression plans, training science (with
   sources). Edit these instead of code for catalog/preset/science changes. See docs/DATA_PACK.md.
-- `docs/`: DATA_PACK.md, PLAY_STORE.md (release checklist), privacy-policy.md, delete-account.md, store/ (icon),
+- `docs/`: DATA_PACK.md, PLAY_STORE.md (release checklist), privacy-policy.md, delete-account.md (live copies are
+  `privacy.html`, `delete-account.html` in the naeemexe/lockedinlabs-website repo; update both), store/ (icon),
   make_timer_sounds.py (generates `res/raw/rest_*.wav`).
 
 ## Rules the user set
