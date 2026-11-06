@@ -1,8 +1,10 @@
 package work.lockedinlabs.tracker.ui.log
 
 import android.content.Context
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
-import android.media.ToneGenerator
+import android.media.SoundPool
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
@@ -18,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import work.lockedinlabs.tracker.R
 
 /**
  * Countdown between sets. Tracks an end time on the monotonic clock, so it stays accurate across
@@ -25,7 +28,8 @@ import kotlinx.coroutines.launch
  */
 class RestTimer(
     private val scope: CoroutineScope,
-    private val alarm: RestAlarm,
+    private val alarm: RestSounds,
+    private val now: () -> Long = SystemClock::elapsedRealtime,
 ) {
     private var endsAt by mutableLongStateOf(0L)
     var totalSeconds by mutableIntStateOf(0)
@@ -42,6 +46,7 @@ class RestTimer(
         totalSeconds = seconds
         endsAt = now() + seconds * 1000L
         job?.cancel()
+        alarm.started()
         job = scope.launch {
             while (true) {
                 val left = endsAt - now()
@@ -67,22 +72,55 @@ class RestTimer(
         remainingMs = 0
     }
 
-    private fun now() = SystemClock.elapsedRealtime()
 }
 
-/** Buzz + beep when rest is over. */
-class RestAlarm(context: Context) {
+interface RestSounds {
+    fun started()
+    fun fire()
+}
+
+/**
+ * Soft sound when rest starts; buzz + tone when it's over. Both are notification sounds, so they
+ * follow notification volume and silent mode (the buzz still comes through on silent).
+ */
+class RestAlarm(context: Context) : RestSounds {
     private val app = context.applicationContext
     private val vibrator: Vibrator? =
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) app.getSystemService(VibratorManager::class.java)?.defaultVibrator
         else @Suppress("DEPRECATION") app.getSystemService(Vibrator::class.java)
 
-    fun fire() {
+    private val attributes = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+        .build()
+    private val sounds = SoundPool.Builder().setMaxStreams(2).setAudioAttributes(attributes).build()
+    private val startSound = sounds.load(app, R.raw.rest_start, 1)
+    private val endSound = sounds.load(app, R.raw.rest_end, 1)
+
+    private val audio = app.getSystemService(AudioManager::class.java)
+    private val duck = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK)
+        .setAudioAttributes(attributes)
+        .build()
+    private val main = Handler(Looper.getMainLooper())
+    private val endDuck = Runnable { audio.abandonAudioFocusRequest(duck) }
+
+    /** Plays over any music as it is: you've just tapped Save, so this one can stay quiet. */
+    override fun started() {
+        sounds.play(startSound, 1f, 1f, 1, 0, 1f)
+    }
+
+    override fun fire() {
         vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 300, 150, 300, 150, 500), -1))
-        runCatching {
-            val tone = ToneGenerator(AudioManager.STREAM_NOTIFICATION, 80)
-            tone.startTone(ToneGenerator.TONE_PROP_BEEP2, 500)
-            Handler(Looper.getMainLooper()).postDelayed({ tone.release() }, 800)
+        // Dips music for the tone. Refused when the app is in the background; the tone plays anyway.
+        if (audio.ringerMode == AudioManager.RINGER_MODE_NORMAL) {
+            audio.requestAudioFocus(duck)
+            main.removeCallbacks(endDuck)
+            main.postDelayed(endDuck, END_SOUND_MS)
         }
+        sounds.play(endSound, 1f, 1f, 1, 0, 1f)
+    }
+
+    private companion object {
+        const val END_SOUND_MS = 1300L
     }
 }

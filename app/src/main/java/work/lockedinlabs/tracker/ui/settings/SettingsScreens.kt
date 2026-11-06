@@ -125,6 +125,11 @@ fun SupportScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             )
             FaqDivider()
             Faq(
+                "Why is the rest timer quiet?",
+                "It follows your notification volume. On silent you only get the buzz at the end.",
+            )
+            FaqDivider()
+            Faq(
                 "How does my session plan rotate?",
                 "It moves on after you train. Miss a day and it waits.",
             )

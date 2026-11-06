@@ -1,0 +1,51 @@
+package work.lockedinlabs.tracker.ui.log
+
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class RestTimerTest {
+    private class Counts : RestSounds {
+        @Volatile var started = 0
+        @Volatile var ended = 0
+        override fun started() { started++ }
+        override fun fire() { ended++ }
+    }
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    private val sounds = Counts()
+    private val timer = RestTimer(scope, sounds, System::currentTimeMillis)
+
+    @After fun tearDown() = scope.cancel()
+
+    @Test fun `plays start then end`() {
+        timer.start(1)
+        assertEquals(1, sounds.started)
+        assertEquals(0, sounds.ended)
+        Thread.sleep(1400)
+        assertEquals(1, sounds.ended)
+    }
+
+    @Test fun `no end tone after skip`() {
+        timer.start(1)
+        timer.skip()
+        Thread.sleep(1400)
+        assertEquals(1, sounds.started)
+        assertEquals(0, sounds.ended)
+    }
+
+    @Test fun `restart plays start again and ends once, on the new time`() {
+        timer.start(1)
+        Thread.sleep(600)
+        timer.start(1)
+        assertEquals(2, sounds.started)
+        Thread.sleep(700) // past the first end time
+        assertEquals(0, sounds.ended)
+        Thread.sleep(700)
+        assertEquals(1, sounds.ended)
+    }
+}

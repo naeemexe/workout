@@ -38,13 +38,14 @@ don't add dependencies unless asked.
   `SharedQuery` (one shared Room query per table).
 - `sync/`: `SyncManager` (local-first, last edit wins, day docs + user doc), `SyncStore`, `AuthRepository`.
 - `ui/`: `home/` (chart, tiles, muscle map, calendar), `log/` (`LogViewModel` holds the logging state machine:
-  session → exercise → set-by-set save; `RestTimer`, `CalendarDialog`), `plan/` (session plans, presets, progression plans),
+  session → exercise → set-by-set save; `RestTimer` with `RestAlarm` sounds, `CalendarDialog`), `plan/` (session plans, presets, progression plans),
   `more/` (More menu, exercise library), `onboarding/`, `profile/` (incl. delete account), `weight/`,
   `settings/` (Settings, Help & support FAQ), `theme/` (`LabCard`, `DayColors`), `AccountDrawer`, `SaveQueue` (latest-wins saves). UI text is inline in Compose,
   not in `strings.xml`.
 - `app/src/main/assets/pack/`: exercises, preset session plans, preset progression plans, training science (with
   sources). Edit these instead of code for catalog/preset/science changes. See docs/DATA_PACK.md.
-- `docs/`: DATA_PACK.md, PLAY_STORE.md (release checklist), privacy-policy.md, delete-account.md, store/ (icon).
+- `docs/`: DATA_PACK.md, PLAY_STORE.md (release checklist), privacy-policy.md, delete-account.md, store/ (icon),
+  make_timer_sounds.py (generates `res/raw/rest_*.wav`).
 
 ## Rules the user set
 
