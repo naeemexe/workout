@@ -52,4 +52,3 @@ For a bug, write what you did, what happened, what you expected, and the date if
   migration on a real v14 database (needs `room-testing`; ask before adding).
 - Lint: `ValueField` in `ui/log/LogScreen.kt` has the `modifier` parameter in the wrong position; merge
   `res/mipmap-anydpi-v26` into `mipmap-anydpi` (minSdk is 26); dependency updates are available.
-- Improve the figure in main page

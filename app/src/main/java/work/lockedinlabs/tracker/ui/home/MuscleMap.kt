@@ -19,14 +19,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -36,8 +34,6 @@ import work.lockedinlabs.tracker.domain.Muscle
 import work.lockedinlabs.tracker.domain.MuscleState
 import work.lockedinlabs.tracker.domain.MuscleStats
 import work.lockedinlabs.tracker.ui.theme.LabCard
-import kotlin.math.atan2
-import kotlin.math.hypot
 import work.lockedinlabs.tracker.domain.plainNumber
 import work.lockedinlabs.tracker.pack.Pack
 
@@ -126,10 +122,21 @@ private fun BodyFigure(front: Boolean, muscles: Map<Muscle, MuscleState>, modifi
                 .aspectRatio(W / H)
                 .semantics { contentDescription = if (front) "Muscle map, front" else "Muscle map, back" },
         ) {
-            val fig = Figure(this)
-            fun color(m: Muscle) = lerp(inactive, active, (muscles[m]?.intensity ?: 0.0).toFloat())
-            fig.silhouette(body)
-            if (front) fig.frontMuscles(::color) else fig.backMuscles(::color)
+            val s = size.height / H
+            val regions = if (front) frontRegions else backRegions
+            withTransform({
+                translate(left = (size.width - W * s) / 2)
+                scale(s, s, Offset.Zero)
+            }) {
+                fun side() {
+                    drawPath(bodyOutline, body)
+                    regions.forEach { r ->
+                        drawPath(r.outline, lerp(inactive, active, (muscles[r.muscle]?.intensity ?: 0.0).toFloat()))
+                    }
+                }
+                side()
+                scale(-1f, 1f, Offset(W / 2, 0f)) { side() }
+            }
         }
         Text(if (front) "Front" else "Back", style = MaterialTheme.typography.labelSmall, color = labelColor)
     }
@@ -138,93 +145,191 @@ private fun BodyFigure(front: Boolean, muscles: Map<Muscle, MuscleState>, modifi
 private const val W = 100f
 private const val H = 210f
 
+/** One muscle shape, on the figure's left side. The mirror image gives the right side. */
+private class Region(val muscle: Muscle, vararg points: Float) {
+    val outline = smoothPath(points, closed = true)
+}
+
 /**
- * A simple stylized figure in a 100 × 210 design grid, scaled to the canvas. Shapes are drawn once for the
- * figure's left side and mirrored.
+ * A smooth curve through [points] (x, y pairs) on the 100 × 210 design grid. A point listed twice in a row is
+ * a sharp corner. An open curve is closed with a straight line, which is how the body meets the midline.
  */
-private class Figure(private val scope: DrawScope) {
-    private val s = scope.size.height / H
-    private val ox = (scope.size.width - W * s) / 2
-
-    private fun p(x: Float, y: Float) = Offset(ox + x * s, y * s)
-
-    /** Runs [draw] for the shape and its mirror image. */
-    private inline fun both(draw: (mirror: Boolean) -> Unit) { draw(false); draw(true) }
-    private fun mx(x: Float, mirror: Boolean) = if (mirror) W - x else x
-
-    private fun oval(cx: Float, cy: Float, w: Float, h: Float, c: Color) =
-        scope.drawOval(c, topLeft = p(cx - w / 2, cy - h / 2), size = Size(w * s, h * s))
-
-    private fun rect(l: Float, t: Float, r: Float, b: Float, radius: Float, c: Color) =
-        scope.drawRoundRect(c, topLeft = p(l, t), size = Size((r - l) * s, (b - t) * s), cornerRadius = CornerRadius(radius * s))
-
-    /** A capsule from (x1,y1) to (x2,y2) of the given width — used for limbs and long muscles. */
-    private fun limb(x1: Float, y1: Float, x2: Float, y2: Float, width: Float, c: Color) {
-        val a = p(x1, y1)
-        val b = p(x2, y2)
-        val center = Offset((a.x + b.x) / 2, (a.y + b.y) / 2)
-        val len = hypot(b.x - a.x, b.y - a.y)
-        val w = width * s
-        val deg = Math.toDegrees(atan2(-(b.x - a.x), b.y - a.y).toDouble()).toFloat()
-        scope.rotate(deg, center) {
-            drawRoundRect(c, topLeft = Offset(center.x - w / 2, center.y - (len + w) / 2), size = Size(w, len + w), cornerRadius = CornerRadius(w / 2))
+private fun smoothPath(points: FloatArray, closed: Boolean): Path {
+    val n = points.size / 2
+    fun index(i: Int) = if (closed) (i + n) % n else i.coerceIn(0, n - 1)
+    fun x(i: Int) = points[index(i) * 2]
+    fun y(i: Int) = points[index(i) * 2 + 1]
+    return Path().apply {
+        moveTo(x(0), y(0))
+        for (i in 0 until if (closed) n else n - 1) {
+            if (x(i) == x(i + 1) && y(i) == y(i + 1)) continue
+            cubicTo(
+                x(i) + (x(i + 1) - x(i - 1)) / 6, y(i) + (y(i + 1) - y(i - 1)) / 6,
+                x(i + 1) - (x(i + 2) - x(i)) / 6, y(i + 1) - (y(i + 2) - y(i)) / 6,
+                x(i + 1), y(i + 1),
+            )
         }
+        close()
     }
+}
 
-    private fun polygon(c: Color, vararg pts: Pair<Float, Float>) {
-        val path = Path().apply {
-            pts.forEachIndexed { i, (x, y) -> p(x, y).let { if (i == 0) moveTo(it.x, it.y) else lineTo(it.x, it.y) } }
-            close()
-        }
-        scope.drawPath(path, c)
-    }
+/** The figure's left half, head to foot and back to the midline. */
+private val bodyOutline by lazy {
+    smoothPath(
+        floatArrayOf(
+            50.4f, 4.0f, 46.0f, 4.5f, 42.8f, 7.5f, 41.7f, 12.5f, 42.0f, 18.0f, 43.2f, 22.6f, 44.8f, 26.0f,
+            45.0f, 29.0f, 44.4f, 32.0f, 42.8f, 34.8f, 40.0f, 37.0f, 36.0f, 39.2f, 29.5f, 41.0f, 24.5f, 43.0f,
+            20.8f, 47.5f, 18.9f, 54.0f, 17.6f, 62.0f, 15.8f, 72.0f, 13.9f, 82.0f, 11.6f, 90.0f, 9.6f, 100.0f,
+            8.3f, 109.0f, 7.0f, 115.0f, 6.0f, 121.0f, 7.0f, 127.0f, 9.6f, 130.8f, 12.2f, 129.6f, 13.4f, 125.0f,
+            13.3f, 121.4f, 14.8f, 118.6f, 14.9f, 113.0f, 16.8f, 104.0f, 20.0f, 94.0f, 23.0f, 86.0f, 25.8f, 76.0f,
+            28.6f, 68.0f, 31.0f, 61.5f, 31.0f, 61.5f, 31.6f, 68.0f, 32.8f, 76.0f, 34.6f, 84.0f, 35.6f, 91.0f,
+            34.6f, 99.0f, 32.0f, 107.0f, 30.2f, 116.0f, 29.6f, 127.0f, 30.2f, 140.0f, 31.8f, 152.0f,
+            33.4f, 160.0f, 32.9f, 166.0f, 31.9f, 174.0f, 32.6f, 184.0f, 35.4f, 194.0f, 35.8f, 199.0f,
+            33.2f, 203.5f, 32.3f, 206.6f, 34.0f, 208.0f, 38.0f, 208.0f, 42.0f, 207.8f, 44.0f, 206.0f,
+            42.9f, 200.0f, 43.2f, 192.0f, 46.0f, 181.0f, 47.4f, 172.0f, 46.5f, 162.0f, 47.4f, 150.0f,
+            48.4f, 135.0f, 48.9f, 124.0f, 50.4f, 117.0f, 50.4f, 117.0f,
+        ),
+        closed = false,
+    )
+}
 
-    fun silhouette(c: Color) {
-        oval(50f, 13f, 15f, 19f, c) // head
-        rect(45f, 19f, 55f, 31f, 3f, c) // neck
-        rect(29f, 29f, 71f, 60f, 11f, c) // shoulders + chest
-        polygon(c, 32f to 52f, 68f to 52f, 64f to 96f, 36f to 96f) // waist
-        rect(34f, 88f, 66f, 112f, 9f, c) // hips
-        both { m ->
-            limb(mx(27f, m), 35f, mx(21f, m), 70f, 11f, c) // upper arm
-            limb(mx(21f, m), 70f, mx(16f, m), 104f, 9f, c) // forearm
-            oval(mx(15f, m), 111f, 8f, 10f, c) // hand
-            limb(mx(41f, m), 104f, mx(40f, m), 152f, 15f, c) // thigh
-            limb(mx(40f, m), 152f, mx(40f, m), 197f, 10f, c) // shin
-            oval(mx(40f, m), 203f, 12f, 6f, c) // foot
-        }
-    }
+private val frontRegions by lazy {
+    listOf(
+        Region(
+            Muscle.CHEST,
+            49.3f, 45.0f, 49.3f, 45.0f, 42.0f, 43.2f, 34.5f, 44.8f, 31.8f, 49.0f, 32.5f, 56.0f, 37.0f, 62.0f,
+            43.5f, 63.6f, 49.3f, 61.5f, 49.3f, 61.5f,
+        ),
+        Region(
+            Muscle.SHOULDERS,
+            31.5f, 43.6f, 27.0f, 42.8f, 22.8f, 45.2f, 20.0f, 50.5f, 19.4f, 56.0f, 20.2f, 60.6f, 23.6f, 58.4f,
+            27.4f, 53.6f, 30.4f, 48.0f,
+        ),
+        Region(
+            Muscle.BICEPS,
+            25.8f, 60.5f, 27.6f, 66.0f, 26.2f, 73.0f, 23.4f, 80.0f, 20.8f, 83.5f, 18.3f, 79.0f, 17.9f, 71.0f,
+            19.6f, 64.5f, 22.5f, 61.0f,
+        ),
+        Region(
+            Muscle.FOREARMS,
+            20.8f, 87.5f, 19.6f, 93.0f, 16.6f, 102.0f, 14.0f, 110.5f, 12.0f, 112.0f, 10.0f, 110.0f,
+            10.6f, 100.0f, 12.8f, 91.5f, 15.8f, 86.5f, 18.5f, 85.5f,
+        ),
+        Region(
+            Muscle.OBLIQUES,
+            34.6f, 65.5f, 38.6f, 67.0f, 40.0f, 78.0f, 40.0f, 90.0f, 39.4f, 100.0f, 37.0f, 104.0f, 36.0f, 98.0f,
+            37.0f, 90.5f, 36.0f, 83.0f, 34.4f, 74.0f,
+        ),
+        Region(
+            Muscle.ABS,
+            42.8f, 65.6f, 45.4f, 65.6f, 48.0f, 65.6f, 49.2f, 67.0f, 49.2f, 69.6f, 49.2f, 72.2f, 48.0f, 73.6f,
+            45.4f, 73.6f, 42.8f, 73.6f, 41.6f, 72.2f, 41.6f, 69.6f, 41.6f, 67.0f,
+        ),
+        Region(
+            Muscle.ABS,
+            42.8f, 75.1f, 45.4f, 75.1f, 48.0f, 75.1f, 49.2f, 76.5f, 49.2f, 79.1f, 49.2f, 81.7f, 48.0f, 83.1f,
+            45.4f, 83.1f, 42.8f, 83.1f, 41.6f, 81.7f, 41.6f, 79.1f, 41.6f, 76.5f,
+        ),
+        Region(
+            Muscle.ABS,
+            42.8f, 84.6f, 45.4f, 84.6f, 48.0f, 84.6f, 49.2f, 86.0f, 49.2f, 88.6f, 49.2f, 91.2f, 48.0f, 92.6f,
+            45.4f, 92.6f, 42.8f, 92.6f, 41.6f, 91.2f, 41.6f, 88.6f, 41.6f, 86.0f,
+        ),
+        Region(
+            Muscle.ABS,
+            42.8f, 94.1f, 45.4f, 94.1f, 48.0f, 94.1f, 49.2f, 95.5f, 49.2f, 100.1f, 49.2f, 104.6f, 43.0f, 106.0f,
+            42.9f, 106.0f, 42.8f, 106.0f, 41.6f, 104.6f, 41.6f, 100.1f, 41.6f, 95.5f,
+        ),
+        Region(
+            Muscle.QUADS,
+            33.4f, 113.0f, 36.8f, 120.0f, 37.2f, 135.0f, 37.6f, 150.0f, 37.0f, 157.0f, 34.6f, 154.0f,
+            32.2f, 143.0f, 31.2f, 128.0f, 31.6f, 118.0f,
+        ),
+        Region(
+            Muscle.QUADS,
+            39.6f, 110.0f, 43.0f, 117.0f, 43.6f, 130.0f, 42.6f, 146.0f, 40.2f, 151.5f, 38.8f, 146.0f,
+            38.5f, 130.0f, 38.0f, 118.0f,
+        ),
+        Region(
+            Muscle.QUADS,
+            45.6f, 128.0f, 47.2f, 139.0f, 46.6f, 150.0f, 45.2f, 158.4f, 41.4f, 158.4f, 39.8f, 155.0f,
+            40.6f, 151.8f, 44.0f, 147.0f, 45.0f, 138.0f,
+        ),
+        Region(
+            Muscle.CALVES,
+            36.0f, 165.5f, 38.0f, 172.0f, 37.6f, 181.0f, 35.8f, 190.0f, 34.0f, 182.0f, 33.0f, 174.0f,
+        ),
+        Region(
+            Muscle.CALVES,
+            44.6f, 166.0f, 46.4f, 172.0f, 45.2f, 182.0f, 43.2f, 190.0f, 41.8f, 181.0f, 42.0f, 171.5f,
+        ),
+    )
+}
 
-    fun frontMuscles(color: (Muscle) -> Color) {
-        both { m ->
-            oval(mx(41f, m), 44f, 17f, 13f, color(Muscle.CHEST))
-            oval(mx(29f, m), 36f, 13f, 12f, color(Muscle.SHOULDERS))
-            limb(mx(26f, m), 42f, mx(22f, m), 63f, 7.5f, color(Muscle.BICEPS))
-            limb(mx(21f, m), 75f, mx(17f, m), 99f, 6.5f, color(Muscle.FOREARMS))
-            limb(mx(37f, m), 60f, mx(39f, m), 86f, 5f, color(Muscle.OBLIQUES))
-            limb(mx(41f, m), 111f, mx(41f, m), 145f, 11.5f, color(Muscle.QUADS))
-            limb(mx(40f, m), 161f, mx(40f, m), 186f, 6.5f, color(Muscle.CALVES))
-            // abs: 3 rows of blocks either side of the midline
-            for (row in 0 until 3) {
-                val top = 55f + row * 9f
-                if (!m) rect(43.5f, top, 49.2f, top + 7.5f, 2f, color(Muscle.ABS))
-                else rect(50.8f, top, 56.5f, top + 7.5f, 2f, color(Muscle.ABS))
-            }
-        }
-    }
-
-    fun backMuscles(color: (Muscle) -> Color) {
-        polygon(color(Muscle.TRAPS), 50f to 22f, 63f to 33f, 50f to 48f, 37f to 33f)
-        rect(45f, 78f, 55f, 94f, 3f, color(Muscle.LOWER_BACK))
-        both { m ->
-            oval(mx(29f, m), 36f, 13f, 12f, color(Muscle.SHOULDERS))
-            oval(mx(43f, m), 49f, 10f, 12f, color(Muscle.UPPER_BACK))
-            limb(mx(37.5f, m), 52f, mx(42f, m), 76f, 8.5f, color(Muscle.LATS))
-            limb(mx(26f, m), 42f, mx(22f, m), 63f, 7.5f, color(Muscle.TRICEPS))
-            limb(mx(21f, m), 75f, mx(17f, m), 99f, 6.5f, color(Muscle.FOREARMS))
-            oval(mx(43.5f, m), 103f, 14f, 14f, color(Muscle.GLUTES))
-            limb(mx(41f, m), 116f, mx(41f, m), 146f, 10.5f, color(Muscle.HAMSTRINGS))
-            limb(mx(40f, m), 158f, mx(40f, m), 180f, 8.5f, color(Muscle.CALVES))
-        }
-    }
+private val backRegions by lazy {
+    listOf(
+        Region(
+            Muscle.TRAPS,
+            49.4f, 30.0f, 49.4f, 30.0f, 45.6f, 33.2f, 41.5f, 37.4f, 35.0f, 40.6f, 31.0f, 43.2f, 31.0f, 43.2f,
+            36.0f, 46.2f, 42.0f, 52.5f, 46.0f, 62.0f, 49.4f, 74.0f, 49.4f, 74.0f,
+        ),
+        Region(
+            Muscle.SHOULDERS,
+            31.5f, 43.6f, 27.0f, 42.8f, 22.8f, 45.2f, 20.0f, 50.5f, 19.4f, 56.0f, 20.2f, 60.6f, 23.6f, 58.4f,
+            27.4f, 53.6f, 30.4f, 48.0f,
+        ),
+        Region(
+            Muscle.UPPER_BACK,
+            32.2f, 46.2f, 36.4f, 48.2f, 41.6f, 54.2f, 44.8f, 62.4f, 42.6f, 65.4f, 36.4f, 62.0f, 32.6f, 57.0f,
+            31.4f, 51.0f,
+        ),
+        Region(
+            Muscle.LATS,
+            32.6f, 59.6f, 36.4f, 64.0f, 43.6f, 67.4f, 46.4f, 72.6f, 44.6f, 83.0f, 41.0f, 93.0f, 37.6f, 97.0f,
+            36.8f, 90.5f, 35.0f, 82.0f, 33.0f, 72.0f,
+        ),
+        Region(
+            Muscle.LOWER_BACK,
+            49.3f, 76.5f, 49.3f, 76.5f, 47.6f, 76.0f, 45.8f, 85.0f, 42.8f, 94.0f, 43.4f, 98.4f, 49.3f, 101.4f,
+            49.3f, 101.4f,
+        ),
+        Region(
+            Muscle.TRICEPS,
+            25.8f, 60.5f, 27.4f, 66.0f, 26.0f, 73.0f, 23.4f, 80.0f, 23.0f, 73.0f, 23.0f, 66.0f, 24.0f, 61.0f,
+        ),
+        Region(
+            Muscle.TRICEPS,
+            22.4f, 61.0f, 21.4f, 67.0f, 21.4f, 74.0f, 22.2f, 82.0f, 20.4f, 84.0f, 18.3f, 79.0f, 17.9f, 71.0f,
+            19.6f, 64.5f,
+        ),
+        Region(
+            Muscle.FOREARMS,
+            20.8f, 87.5f, 19.6f, 93.0f, 16.6f, 102.0f, 14.0f, 110.5f, 12.0f, 112.0f, 10.0f, 110.0f,
+            10.6f, 100.0f, 12.8f, 91.5f, 15.8f, 86.5f, 18.5f, 85.5f,
+        ),
+        Region(
+            Muscle.GLUTES,
+            33.6f, 105.0f, 40.0f, 100.6f, 49.3f, 103.6f, 49.3f, 103.6f, 49.3f, 117.8f, 49.3f, 117.8f,
+            44.0f, 121.8f, 36.0f, 120.8f, 31.6f, 114.0f,
+        ),
+        Region(
+            Muscle.HAMSTRINGS,
+            32.4f, 124.0f, 37.0f, 123.6f, 39.2f, 132.0f, 39.0f, 146.0f, 38.0f, 157.0f, 35.2f, 154.0f,
+            32.6f, 143.0f, 31.4f, 132.0f,
+        ),
+        Region(
+            Muscle.HAMSTRINGS,
+            40.4f, 123.8f, 47.8f, 122.6f, 47.6f, 135.0f, 46.6f, 148.0f, 45.0f, 158.0f, 42.0f, 155.0f,
+            40.6f, 146.0f, 40.2f, 132.0f,
+        ),
+        Region(
+            Muscle.CALVES,
+            39.2f, 160.6f, 39.6f, 172.0f, 38.8f, 185.0f, 37.2f, 190.0f, 33.8f, 179.0f, 33.0f, 171.0f,
+            35.2f, 163.0f,
+        ),
+        Region(
+            Muscle.CALVES,
+            40.8f, 160.6f, 44.8f, 162.6f, 47.0f, 171.0f, 45.6f, 181.0f, 41.8f, 190.0f, 40.9f, 175.0f,
+        ),
+    )
 }
