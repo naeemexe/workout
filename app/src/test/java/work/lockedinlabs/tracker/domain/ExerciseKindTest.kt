@@ -26,6 +26,14 @@ class ExerciseKindTest {
         assertEquals(listOf(SetEntry(50.0, 10)), SetCodec.decode("50.0x10"))
     }
 
+    @Test fun `next in row only looks forward`() {
+        val row = listOf("Squat", "Curl", "Plank")
+        assertEquals("Curl", Rotation.nextInRow(row, "Squat", setOf("squat")))
+        assertEquals("Plank", Rotation.nextInRow(row, "Squat", setOf("squat", "curl")))
+        assertNull(Rotation.nextInRow(row, "Plank", setOf("plank")))
+        assertNull(Rotation.nextInRow(row, "plank", setOf("plank", "curl")))
+    }
+
     @Test fun `summaries show time`() {
         assertEquals("3 × 0:45", List(3) { SetEntry(0.0, 0, seconds = 45) }.summary())
         assertEquals("0:45, 0:37", listOf(SetEntry(0.0, 0, seconds = 45), SetEntry(0.0, 0, seconds = 37)).summary())

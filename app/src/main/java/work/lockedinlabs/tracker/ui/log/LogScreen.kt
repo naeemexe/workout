@@ -63,6 +63,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
@@ -99,6 +100,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import work.lockedinlabs.tracker.data.PlanDay
 import work.lockedinlabs.tracker.domain.label
 import work.lockedinlabs.tracker.domain.setText
@@ -164,8 +166,10 @@ fun LogScreen(viewModel: LogViewModel, snackbar: SnackbarHostState, onOpenPlans:
     val view = LocalView.current
     val hold = viewModel.hold
     val timing = rest.running || hold.running
-    DisposableEffect(timing) {
-        view.keepScreenOn = timing
+    // Not for cardio: that's a long time for the screen to stay lit.
+    val keepAwake = rest.running || (hold.running && viewModel.current.kind == ExerciseKind.HOLD)
+    DisposableEffect(keepAwake) {
+        view.keepScreenOn = keepAwake
         onDispose { view.keepScreenOn = false }
     }
 
@@ -200,7 +204,12 @@ fun LogScreen(viewModel: LogViewModel, snackbar: SnackbarHostState, onOpenPlans:
     }
     val panel = Modifier.align(Alignment.BottomCenter).padding(12.dp)
     if (hold.running) {
-        TimerPanel(hold, if (viewModel.gettingReady) "Get ready" else "Hold · ${viewModel.exercise}", panel) {
+        val title = when {
+            viewModel.gettingReady -> "Get ready"
+            viewModel.current.kind == ExerciseKind.HOLD -> "Hold · ${viewModel.exercise}"
+            else -> viewModel.exercise
+        }
+        TimerPanel(hold, title, panel) {
             TextButton(onClick = viewModel::stopHold) { Text(if (viewModel.gettingReady) "Cancel" else "Stop") }
         }
     } else if (rest.running) {
@@ -318,37 +327,39 @@ private fun ColumnScope.ExerciseLogger(viewModel: LogViewModel, focus: FocusMana
             SetSelector(viewModel.sets.size, viewModel.selectedSet, viewModel.savedThrough, viewModel::selectSet, viewModel::addSet)
             Spacer(Modifier.height(16.dp))
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            when (current.kind) {
-                ExerciseKind.WEIGHT -> {
-                    ValueField("Weight", current.weight, viewModel::onWeightChange, KeyboardType.Decimal, suffix = "lb", modifier = Modifier.weight(1f))
-                    ValueField(
-                        "Reps", current.reps, viewModel::onRepsChange, KeyboardType.Number,
-                        // Hint with the previous set's reps so repeating them is one glance away.
-                        placeholder = viewModel.sets.getOrNull(viewModel.selectedSet - 1)?.reps,
-                        imeAction = ImeAction.Done, onDone = { focus.clearFocus() },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                ExerciseKind.HOLD -> {
-                    ValueField("Weight", current.weight, viewModel::onWeightChange, KeyboardType.Decimal, suffix = "lb", modifier = Modifier.weight(1f))
-                    ValueField(
-                        "Seconds", current.seconds, viewModel::onSecondsChange, KeyboardType.Number,
-                        imeAction = ImeAction.Done, onDone = { focus.clearFocus() },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-                ExerciseKind.CARDIO -> {
-                    ValueField("Minutes", current.minutes, viewModel::onMinutesChange, KeyboardType.Number, modifier = Modifier.weight(1f))
-                    ValueField(
-                        "Miles", current.miles, viewModel::onMilesChange, KeyboardType.Decimal,
-                        imeAction = ImeAction.Done, onDone = { focus.clearFocus() },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
+        val locked = viewModel.hold.running
+        when (current.kind) {
+            ExerciseKind.WEIGHT -> Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ValueField("Weight", current.weight, viewModel::onWeightChange, KeyboardType.Decimal, suffix = "lb", modifier = Modifier.weight(1f))
+                ValueField(
+                    "Reps", current.reps, viewModel::onRepsChange, KeyboardType.Number,
+                    // Hint with the previous set's reps so repeating them is one glance away.
+                    placeholder = viewModel.sets.getOrNull(viewModel.selectedSet - 1)?.reps,
+                    imeAction = ImeAction.Done, onDone = { focus.clearFocus() },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            ExerciseKind.HOLD -> {
+                val seconds = current.seconds.toIntOrNull() ?: 0
+                TimeSlider("Time", clock(seconds), seconds, 5..300, 5, !locked, viewModel::onSeconds)
+            }
+            ExerciseKind.CARDIO -> {
+                val minutes = current.minutes.toIntOrNull() ?: 0
+                TimeSlider("Time", "$minutes min", minutes, 5..180, 5, !locked, viewModel::onMinutes)
+                Spacer(Modifier.height(12.dp))
+                ValueField(
+                    "Miles", current.miles, viewModel::onMilesChange, KeyboardType.Decimal,
+                    imeAction = ImeAction.Done, onDone = { focus.clearFocus() },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
-        if (!oneEntry && (viewModel.sets.size > 1 || !current.isBlank)) {
+        val showRemove = when (current.kind) {
+            ExerciseKind.WEIGHT -> viewModel.sets.size > 1 || !current.isBlank
+            ExerciseKind.HOLD -> viewModel.sets.size > 1 || viewModel.selectedSet <= viewModel.savedThrough
+            ExerciseKind.CARDIO -> !oneEntry
+        }
+        if (showRemove) {
             TextButton(onClick = viewModel::removeSelectedSet, modifier = Modifier.align(Alignment.End)) {
                 Text("Remove set ${viewModel.selectedSet + 1}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -358,7 +369,7 @@ private fun ColumnScope.ExerciseLogger(viewModel: LogViewModel, focus: FocusMana
         }
 
         Button(
-            onClick = { focus.clearFocus(); viewModel.save() },
+            onClick = { focus.clearFocus(); if (viewModel.startsTimer) viewModel.startTimer() else viewModel.save() },
             enabled = viewModel.canSave,
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth().height(56.dp),
@@ -366,19 +377,7 @@ private fun ColumnScope.ExerciseLogger(viewModel: LogViewModel, focus: FocusMana
         // Cardio has no rest timer.
         if (current.kind == ExerciseKind.CARDIO) return
         Spacer(Modifier.height(16.dp))
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (current.kind == ExerciseKind.HOLD) {
-                FilledTonalButton(
-                    onClick = { focus.clearFocus(); viewModel.startHold() },
-                    enabled = viewModel.canHold,
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.weight(1f).height(52.dp),
-                ) {
-                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(current.seconds.toIntOrNull()?.let { "Hold ${clock(it)}" } ?: "Hold", style = MaterialTheme.typography.titleSmall)
-                }
-            }
+        Row(verticalAlignment = Alignment.CenterVertically) {
             // Done with a set? Start resting; at zero the next set is selected.
             FilledTonalButton(
                 onClick = { focus.clearFocus(); viewModel.startRest() },
@@ -442,6 +441,24 @@ private fun RestTimeMenu(selected: Int, onSelect: (Int) -> Unit) {
                 )
             }
         }
+    }
+}
+
+/** The time for a hold or cardio, set by dragging; snaps to [step]. */
+@Composable
+private fun TimeSlider(label: String, text: String, value: Int, range: IntRange, step: Int, enabled: Boolean, onChange: (Int) -> Unit) {
+    Column {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+        Slider(
+            value = value.toFloat(),
+            onValueChange = { onChange(((it / step).roundToInt() * step).coerceIn(range)) },
+            valueRange = range.first.toFloat()..range.last.toFloat(),
+            enabled = enabled,
+            modifier = Modifier.semantics { contentDescription = "$label, $text" },
+        )
     }
 }
 

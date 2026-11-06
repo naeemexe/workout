@@ -62,6 +62,9 @@ don't add dependencies unless asked.
 - Each exercise has a kind (`ExerciseKind`: Weight, Hold, Cardio), from the pack or set on your own exercise. Sets
   carry their own fields (`SetEntry`), so history stays readable if a kind changes. Holds and cardio stay out of
   Strength Index and progression; cardio stays off the muscle map.
+- Hold and cardio time is set with a slider; the main button is Start and the set saves when the timer ends. Past
+  days and saved sets show Save. No weight on either for now.
+- After the last set the page moves to the next exercise in the row, never back to the first; at the end it stays.
 
 ## Recipes
 

@@ -131,7 +131,7 @@ fun SupportScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             FaqDivider()
             Faq(
                 "How do holds work?",
-                "Tap Hold. After 5 seconds it counts down, saves the set and starts your rest.",
+                "Slide to set the time and tap Start. After 5 seconds it counts down, saves the set and starts your rest.",
             )
             FaqDivider()
             Faq(

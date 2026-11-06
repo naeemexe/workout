@@ -12,6 +12,10 @@ import java.time.LocalDate
  *   so they don't advance the rotation.
  */
 object Rotation {
+    /** The first exercise after [current] in [row] not in [done] (lowercase names). Never wraps back to the start. */
+    fun nextInRow(row: List<String>, current: String, done: Set<String>): String? =
+        row.drop(row.indexOfFirst { it.equals(current, ignoreCase = true) } + 1).firstOrNull { it.lowercase() !in done }
+
     /**
      * Days in rotation order; if two workout days share a name, only the first counts.
      * Normally only named days are used, so a 4-day plan repeats every 4 days. With [weekly], the plan is a

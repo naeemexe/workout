@@ -62,7 +62,8 @@ class RestService : Service() {
     companion object {
         private const val CHANNEL = "rest_timer"
         private const val NOTIFICATION_ID = 1
-        private const val WAKE_LOCK_LIMIT_MS = 30 * 60 * 1000L
+        /** Past the longest cardio timer. */
+        private const val WAKE_LOCK_LIMIT_MS = 4 * 60 * 60 * 1000L
 
         /** The timer runs either way, just without this help if Android refuses. */
         fun start(context: Context) {
