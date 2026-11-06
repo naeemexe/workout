@@ -18,7 +18,7 @@ android {
         // Google Play requires new apps to target a recent Android version (36 = Android 16).
         targetSdk = 36
         // Raise versionCode by 1 for every upload to Play.
-        versionCode = 1
+        versionCode = 2
         versionName = "1.0.0"
     }
 
