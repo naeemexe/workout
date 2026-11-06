@@ -5,17 +5,23 @@ Package `work.lockedinlabs.tracker`. Repo: github.com/naeemexe/workout (branch `
 
 ## Workflow
 
-1. Pick one item from [BACKLOG.md](BACKLOG.md) (or the one the user names). One item per session.
-2. Read only the files the item touches (map below). Don't re-read the whole repo.
-3. Build, run unit tests, and check the change on the emulator (see Testing).
+Every session does one backlog item and starts cold, so this file is the context. Don't explore the repo first.
+
+1. Take the item the user names. If they just say "next", take the first item in BACKLOG.md that isn't marked
+   **(you)**: Bugs first, then Before launch, then Features.
+2. Find the code with the map below and grep. Read only what the item touches. Files over 350 lines (`LogScreen`,
+   `PlanScreen`, `LogViewModel`, `RuleScreens`, `HomeScreen`, `SyncManager`, `MoreScreens`): grep, then read that part.
+3. Build, run unit tests, and check the change on the emulator (see Build and test).
 4. Update docs if behaviour changed (README.md, docs/, help FAQ in `ui/settings/SettingsScreens.kt`).
-5. Remove the item from BACKLOG.md (add new items you discover), copy the debug APK to `dist/`, then commit.
-   Push only when the user asks. End commit messages with the Co-Authored-By line the session gives you.
+5. Remove the item from BACKLOG.md. Other problems you find go in BACKLOG.md, not in this session's change.
+6. If this file was wrong or a new file or rule appeared, fix it in the same commit. Keep it short.
+7. Copy the debug APK to `dist/`, then commit. Push only when the user asks. End commit messages with the
+   Co-Authored-By line the session gives you.
 
 ## Stack
 
 Kotlin 2.3, AGP 8.13, Gradle 8.14, compileSdk/targetSdk 36, minSdk 26. Jetpack Compose + Material 3, MVVM with
-manual DI in `LockedInApp` (no Hilt). Room (DB version 14, schemas in `app/schemas`, every version has a migration).
+manual DI in `LockedInApp` (no Hilt). Room (version in `data/AppDatabase.kt`, schemas in `app/schemas`, every version has a migration).
 Firebase Auth (Google sign-in via Credential Manager) + Firestore backup. JUnit unit tests. No other libraries:
 don't add dependencies unless asked.
 
@@ -27,14 +33,15 @@ don't add dependencies unless asked.
 - `domain/`: pure logic. `ExerciseCatalog` (from pack), `StrengthIndex` (per-muscle detraining, realistic
   projection), `MuscleStats` (weekly sets per muscle), `Progression` (step up / down), `Rotation` (which session is
   due), `Highlights` (`Streak`), `Format` (number text).
-- `data/`: Room entities, DAOs and repositories (`WorkoutRepository`, `PlanRepository`, `RuleRepository`,
-  `CustomExerciseRepository`, `WeightRepository`, `ProfileRepository`), `SettingsStore` (prefs), `SharedQuery`
-  (one shared Room query per table).
+- `data/`: Room entities, each with its DAO in the same file (except `LogDao.kt`), and repositories (`WorkoutRepository`, `PlanRepository`, `RuleRepository`,
+  `CustomExerciseRepository`, `WeightRepository`, `ProfileRepository`), `SettingsStore` (prefs),
+  `SharedQuery` (one shared Room query per table).
 - `sync/`: `SyncManager` (local-first, last edit wins, day docs + user doc), `SyncStore`, `AuthRepository`.
 - `ui/`: `home/` (chart, tiles, muscle map, calendar), `log/` (`LogViewModel` holds the logging state machine:
-  session → exercise → set-by-set save, rest timer), `plan/` (session plans, presets, progression plans),
+  session → exercise → set-by-set save; `RestTimer`, `CalendarDialog`), `plan/` (session plans, presets, progression plans),
   `more/` (More menu, exercise library), `onboarding/`, `profile/` (incl. delete account), `weight/`,
-  `settings/` (Settings, Help & support FAQ), `theme/` (`LabCard`, `DayColors`), `SaveQueue` (latest-wins saves).
+  `settings/` (Settings, Help & support FAQ), `theme/` (`LabCard`, `DayColors`), `AccountDrawer`, `SaveQueue` (latest-wins saves). UI text is inline in Compose,
+  not in `strings.xml`.
 - `app/src/main/assets/pack/`: exercises, preset session plans, preset progression plans, training science (with
   sources). Edit these instead of code for catalog/preset/science changes. See docs/DATA_PACK.md.
 - `docs/`: DATA_PACK.md, PLAY_STORE.md (release checklist), privacy-policy.md, delete-account.md, store/ (icon).
@@ -52,6 +59,13 @@ don't add dependencies unless asked.
   fixed width and the selected chip sits at the same spot in both rows.
 - Units are lb.
 
+## Recipes
+
+- **Database change:** raise the version, add an `AutoMigration` (or a `Migration` if Room can't work it out), commit
+  the new schema JSON. Never edit a shipped migration. If the data is backed up, update both directions in
+  `SyncManager` and keep reading older cloud docs.
+- **Play upload:** raise `versionCode`, then follow docs/PLAY_STORE.md.
+
 ## Gotchas
 
 - Compose state that `init` touches must be declared **above** `init` in a ViewModel (a delegated property declared
@@ -64,7 +78,7 @@ don't add dependencies unless asked.
 
 ```bash
 ./gradlew :app:testDebugUnitTest      # includes DataPackTest, which validates the real pack files
-./gradlew :app:assembleDebug          # then: cp app/build/outputs/apk/debug/app-debug.apk dist/LockedIn-0.1.0-debug.apk
+./gradlew :app:assembleDebug          # then: cp app/build/outputs/apk/debug/app-debug.apk dist/LockedIn-debug.apk
 ./gradlew :app:bundleRelease          # Play upload (needs keystore.properties, see docs/PLAY_STORE.md)
 ```
 
