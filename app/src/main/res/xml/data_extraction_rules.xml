@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android backup, Android 12 and newer: workouts and settings only, never sign-in or sync state. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="database" path="lockedin.db" />
+        <include domain="database" path="lockedin.db-wal" />
+        <include domain="database" path="lockedin.db-shm" />
+        <include domain="sharedpref" path="settings.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="database" path="lockedin.db" />
+        <include domain="database" path="lockedin.db-wal" />
+        <include domain="database" path="lockedin.db-shm" />
+        <include domain="sharedpref" path="settings.xml" />
+    </device-transfer>
+</data-extraction-rules>

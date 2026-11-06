@@ -3,6 +3,7 @@ package work.lockedinlabs.tracker.domain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import work.lockedinlabs.tracker.data.DayChoice
 import work.lockedinlabs.tracker.data.PlanDay
 import java.time.LocalDate
 
@@ -103,4 +104,23 @@ class RotationTest {
 
     @Test fun `a week of only blank days is no plan`() =
         assertEquals(emptyList<PlanDay>(), Rotation.cycle((0..6).map { PlanDay(it) }, weekly = true))
+
+    @Test fun `past day keeps its session after the plan's slots change`() {
+        val cycle = listOf(PlanDay(0, name = "Hands"), PlanDay(1, name = "Legs"))
+        assertEquals(1, Rotation.recordedDay(DayChoice(100, dayIndex = 0, name = "Legs"), cycle)?.dayIndex)
+    }
+
+    @Test fun `past session no longer in the plan shows as custom with its name`() {
+        val day = Rotation.recordedDay(DayChoice(100, dayIndex = 0, name = "Legs"), listOf(PlanDay(0, name = "Hands")))
+        assertEquals(PlanDay.CUSTOM_CHOICE, day?.dayIndex)
+        assertEquals("Legs", day?.displayName)
+    }
+
+    @Test fun `rest, custom and unnamed records fall back to the rotation`() {
+        val cycle = listOf(PlanDay(0, name = "Hands"))
+        assertNull(Rotation.recordedDay(null, cycle))
+        assertNull(Rotation.recordedDay(DayChoice(100, PlanDay.REST_CHOICE), cycle))
+        assertNull(Rotation.recordedDay(DayChoice(100, PlanDay.CUSTOM_CHOICE, "Arms"), cycle))
+        assertNull(Rotation.recordedDay(DayChoice(100, dayIndex = 0), cycle))
+    }
 }

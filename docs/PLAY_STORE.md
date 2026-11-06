@@ -38,7 +38,11 @@ console → Project settings → your Android app → Add fingerprint:
 - your upload key: `keytool -list -v -keystore lockedin-upload.jks -alias upload`
 - Play's app signing key: Play Console → your app → Test and release → App integrity → App signing.
 
-Then download the new `google-services.json` into `app/` and rebuild.
+Then download the new `google-services.json` into `app/` and rebuild. The Play key's fingerprint only exists after
+the first upload, so sign-in on a Play build starts working from the second upload.
+
+In Google Cloud console (same project) → Google Auth Platform → Audience, set the app to **In production**.
+While it says Testing, only listed test users can sign in. Under Branding, set the name and support email.
 
 ## 4. Firestore security rules
 
@@ -64,7 +68,10 @@ Check that `support@lockedinlabs.work` exists and is read; it's in the app, the 
 
 ## 6. Play Console
 
-- **Create app**: name "Locked In", free, app. Category: Health & Fitness.
+- **Create app**: name "LockedIn: Gym Workout Tracker" (30 characters max, no all-caps words), package
+  `work.lockedinlabs.tracker` (permanent), English (US), App, Free. Category: Health & Fitness. The icon label on the
+  phone stays "Locked In".
+- **Health apps** (App content): fill in the declaration as a fitness tracker.
 - **Privacy policy**: `https://lockedinlabs.work/privacy`.
 - **App access**: all features work without signing in (sign-in is only for backup).
 - **Ads**: no ads.
@@ -83,7 +90,8 @@ Check that `support@lockedinlabs.work` exists and is read; it's in the app, the 
 
 ## 7. Testing before production
 
-New personal developer accounts must run a **closed test with at least 12 testers for 14 days** before they can
+The Dashboard shows whether this applies to your account. New personal developer accounts must run a **closed test
+with at least 12 testers for 14 days** before they can
 publish to production. Create a closed testing track, add testers by email, and share the opt-in link.
 
 ## Release checks

@@ -110,7 +110,8 @@ class SyncManager(
             store.lastSyncAt = System.currentTimeMillis()
             _status.value = SyncStatus.Synced(store.lastSyncAt)
         } catch (e: Exception) {
-            _status.value = SyncStatus.Failed(if (e is kotlinx.coroutines.TimeoutCancellationException) "Offline. Will retry." else e.message ?: "Sync failed")
+            if (e !is kotlinx.coroutines.TimeoutCancellationException) android.util.Log.w("LockedInSync", "Sync failed", e)
+            _status.value = SyncStatus.Failed(if (e is kotlinx.coroutines.TimeoutCancellationException) "Offline. Will retry." else "Sync failed. Try again.")
         }
     }
 

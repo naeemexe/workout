@@ -1,5 +1,6 @@
 package work.lockedinlabs.tracker.domain
 
+import work.lockedinlabs.tracker.data.DayChoice
 import work.lockedinlabs.tracker.data.PlanDay
 import java.time.LocalDate
 
@@ -29,6 +30,16 @@ object Rotation {
             .filter { it.isRest || (!it.displayName.equals("rest", ignoreCase = true) && seen.add(it.displayName.lowercase())) }
         // A week of nothing but rest isn't a plan.
         return if (days.none { !it.isRest }) emptyList() else days
+    }
+
+    /**
+     * The session a past logged date really was, from the name saved with it. The plan may have been edited or
+     * switched since, so its day indexes can't be trusted. A session no longer in the plan shows as custom.
+     */
+    fun recordedDay(record: DayChoice?, cycle: List<PlanDay>): PlanDay? {
+        if (record == null || record.dayIndex < 0 || record.name.isBlank() || cycle.isEmpty()) return null
+        return cycle.firstOrNull { !it.isRest && it.displayName.equals(record.name, ignoreCase = true) }
+            ?: PlanDay.custom(record.name)
     }
 
     /**

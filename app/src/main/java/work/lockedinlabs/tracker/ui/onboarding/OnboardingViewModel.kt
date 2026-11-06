@@ -24,6 +24,7 @@ import work.lockedinlabs.tracker.pack.PresetPlan
 import work.lockedinlabs.tracker.sync.AuthRepository
 import work.lockedinlabs.tracker.sync.SignInCancelled
 import work.lockedinlabs.tracker.sync.SyncManager
+import work.lockedinlabs.tracker.sync.SyncStatus
 
 enum class OnboardingStep { WELCOME, ABOUT, PLAN, TOUR }
 
@@ -105,8 +106,11 @@ class OnboardingViewModel(
             auth.signInWithGoogle(activityContext)
                 .onSuccess {
                     sync.syncNow()
-                    if (hasData()) finishQuietly()
-                    else restoreError = "No backup yet for this account. Let's set you up."
+                    when {
+                        hasData() -> finishQuietly()
+                        sync.status.value is SyncStatus.Failed -> restoreError = "Couldn't reach your backup. Try again."
+                        else -> restoreError = "No backup yet for this account. Let's set you up."
+                    }
                 }
                 .onFailure { e -> if (e !is SignInCancelled) restoreError = e.message }
             restoring = false

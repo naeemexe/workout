@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -64,7 +65,7 @@ fun CalendarDialog(
     onDismiss: () -> Unit,
 ) {
     val today = LocalDate.now()
-    var picked by rememberSaveable { mutableStateOf(current.toEpochDay()) }
+    var picked by rememberSaveable { mutableLongStateOf(current.toEpochDay()) }
     var month by rememberSaveable { mutableStateOf(YearMonth.from(current).toString()) }
     val ym = YearMonth.parse(month)
     val pickedDate = LocalDate.ofEpochDay(picked)

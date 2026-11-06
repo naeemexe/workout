@@ -687,11 +687,11 @@ private fun ValueField(
     value: String,
     onValueChange: (String) -> Unit,
     keyboardType: KeyboardType,
+    modifier: Modifier = Modifier,
     suffix: String? = null,
     placeholder: String? = null,
     imeAction: ImeAction = ImeAction.Next,
     onDone: () -> Unit = {},
-    modifier: Modifier = Modifier,
 ) {
         OutlinedTextField(
             value = value,

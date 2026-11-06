@@ -253,10 +253,15 @@ class LogViewModel(
     /** Workout days to pick from on the Log tab; planned rest days are covered by the Rest chip. */
     val workoutDays by derivedStateOf { cycle.filterNot { it.isRest } }
 
-    /** Which plan day the selected date is: your pick, or the next one due in the rotation. */
+    /** Which plan day the selected date is: what a past logged date recorded, your pick, or the next one due. */
     val planDay by derivedStateOf {
-        Rotation.dayFor(date, cycle, choices, allLogs.mapTo(HashSet()) { it.epochDay })?.let { day ->
-            if (day.dayIndex == PlanDay.CUSTOM_CHOICE) PlanDay.custom(dayNames[date.toEpochDay()].orEmpty()) else day
+        val day = date.toEpochDay()
+        val trained = allLogs.mapTo(HashSet()) { it.epochDay }
+        val recorded = if (date.isBefore(LocalDate.now()) && day in trained) {
+            Rotation.recordedDay(choiceRecords.firstOrNull { it.epochDay == day }, cycle)
+        } else null
+        recorded ?: Rotation.dayFor(date, cycle, choices, trained)?.let {
+            if (it.dayIndex == PlanDay.CUSTOM_CHOICE) PlanDay.custom(dayNames[day].orEmpty()) else it
         }
     }
 

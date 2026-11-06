@@ -78,6 +78,9 @@ don't add dependencies unless asked.
 - Compose state that `init` touches must be declared **above** `init` in a ViewModel (a delegated property declared
   below caused a crash).
 - Screens outside the main `Scaffold` must sit in a `Surface`, or text turns black in dark mode.
+- Android backup is an allowlist (`res/xml/backup_rules.xml`, `data_extraction_rules.xml`): a new prefs or database
+  file isn't backed up unless added to both. Sign-in and sync state must stay out.
+- Keep `res/mipmap-anydpi-v26`: merging it into `mipmap-anydpi` breaks the build, whatever lint says.
 - `google-services.json` is git-ignored (public repo); it lives in `app/` locally. Signing files are git-ignored too.
 - Domain code reads `Pack.current`; unit tests call `TestPack.install()` first.
 

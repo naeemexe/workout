@@ -148,7 +148,10 @@ class ProfileViewModel(
                     eraseLocalData()
                     erased = true
                 }
-            }.onFailure { e -> if (e !is SignInCancelled) deleteError = e.message ?: "Couldn't delete the account. Try again." }
+            }.onFailure { e ->
+                if (e is SignInCancelled) return@onFailure
+                deleteError = (e as? IllegalStateException)?.message ?: "Couldn't delete the account. Try again."
+            }
             deleting = false
         }
     }

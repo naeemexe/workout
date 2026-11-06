@@ -1,7 +1,9 @@
 package work.lockedinlabs.tracker.ui.settings
 
+import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -37,6 +39,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import work.lockedinlabs.tracker.BuildConfig
 import work.lockedinlabs.tracker.data.ThemeMode
 import work.lockedinlabs.tracker.ui.theme.LabCard
@@ -164,18 +167,18 @@ fun SupportScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         SectionLabel("Contact")
         LabCard {
             LinkRow("Email support", SUPPORT_EMAIL) {
-                context.startActivity(
-                    Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$SUPPORT_EMAIL"))
+                context.openLink(
+                    Intent(Intent.ACTION_SENDTO, "mailto:$SUPPORT_EMAIL".toUri())
                         .putExtra(Intent.EXTRA_SUBJECT, "Locked In ${BuildConfig.VERSION_NAME} support"),
                 )
             }
             FaqDivider()
             LinkRow("Website", WEBSITE.removePrefix("https://")) {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(WEBSITE)))
+                context.openLink(Intent(Intent.ACTION_VIEW, WEBSITE.toUri()))
             }
             FaqDivider()
             LinkRow("Privacy policy", "") {
-                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(PRIVACY_URL)))
+                context.openLink(Intent(Intent.ACTION_VIEW, PRIVACY_URL.toUri()))
             }
         }
 
@@ -227,3 +230,12 @@ private fun LinkRow(title: String, detail: String, onClick: () -> Unit) {
 
 @Composable
 private fun FaqDivider() = HorizontalDivider(Modifier.padding(horizontal = 16.dp), color = MaterialTheme.colorScheme.outlineVariant)
+
+/** Not every phone has a mail app or a browser. */
+private fun Context.openLink(intent: Intent) {
+    try {
+        startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(this, "No app can open this.", Toast.LENGTH_SHORT).show()
+    }
+}
