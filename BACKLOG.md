@@ -21,10 +21,6 @@ For a bug, write what you did, what happened, what you expected, and the date if
 
 ## Before launch: accounts and Play (see docs/PLAY_STORE.md)
 
-- **(you)** Create the upload key and `keystore.properties`.
-- **(you)** Add upload and Play app-signing SHA-1 fingerprints in Firebase, then refresh `app/google-services.json`.
-  Google sign-in won't work on the Play build without this.
-- **(you)** Set Firestore security rules (users can only read, write and delete their own `users/{uid}` tree).
 - **(you)** Host docs/privacy-policy.md at lockedinlabs.work/privacy and docs/delete-account.md at
   lockedinlabs.work/delete-account.
 - **(you)** Confirm support@lockedinlabs.work is a real inbox (it's in the app, policy and listing).

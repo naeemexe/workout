@@ -46,6 +46,7 @@ While it says Testing, only listed test users can sign in. Under Branding, set t
 
 ## 4. Firestore security rules
 
+Done: the `(default)` Firestore database is in `nam5` (Standard edition, location permanent) with these rules.
 Make sure each user can only reach their own data, and can delete it (account deletion needs this):
 
 ```
