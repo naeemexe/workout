@@ -9,7 +9,8 @@ A simple Android workout tracker. Log what you lift; watch your strength chart l
 - **Log**: Session (from the active session plan, or Rest / Custom), Exercise, Sets, weight and reps, Save and a rest
   timer. The plan sets the number of sets (+ adds one for that day); Save goes set by set ("Save set 1", …), each set
   opens once the one before is saved, and Save starts the rest timer. The timer plays a soft sound when it starts, and
-  a buzz and tone when it ends; sounds follow notification volume and silent mode, and the tone briefly dips music.
+  a buzz and tone when it ends, also with the app in the background or the screen off. Sounds follow notification
+  volume and silent mode, and the tone briefly dips music.
   One log per exercise per day: going back to it edits that log. A custom session lists only what you've logged that day. Calendar date picker for backfilling.
 - **More**
   - **Session plans**: several plans, one active. 7 day slots with names, exercises (with set counts, drag to

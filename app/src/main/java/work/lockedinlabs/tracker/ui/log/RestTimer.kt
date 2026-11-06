@@ -23,8 +23,8 @@ import kotlinx.coroutines.launch
 import work.lockedinlabs.tracker.R
 
 /**
- * Countdown between sets. Tracks an end time on the monotonic clock, so it stays accurate across
- * tab switches and screen locks while the app is alive.
+ * Countdown between sets. Tracks an end time on the monotonic clock. [RestService] keeps the app
+ * running while it counts, so it ends on time with the app in the background or the screen off.
  */
 class RestTimer(
     private val scope: CoroutineScope,
@@ -68,6 +68,7 @@ class RestTimer(
 
     fun skip() {
         job?.cancel()
+        if (running) alarm.skipped()
         endsAt = 0
         remainingMs = 0
     }
@@ -76,6 +77,7 @@ class RestTimer(
 
 interface RestSounds {
     fun started()
+    fun skipped()
     fun fire()
 }
 
@@ -103,10 +105,18 @@ class RestAlarm(context: Context) : RestSounds {
         .build()
     private val main = Handler(Looper.getMainLooper())
     private val endDuck = Runnable { audio.abandonAudioFocusRequest(duck) }
+    private val stopService = Runnable { RestService.stop(app) }
 
     /** Plays over any music as it is: you've just tapped Save, so this one can stay quiet. */
     override fun started() {
+        main.removeCallbacks(stopService)
+        RestService.start(app)
         sounds.play(startSound, 1f, 1f, 1, 0, 1f)
+    }
+
+    override fun skipped() {
+        main.removeCallbacks(stopService)
+        RestService.stop(app)
     }
 
     override fun fire() {
@@ -118,9 +128,13 @@ class RestAlarm(context: Context) : RestSounds {
             main.postDelayed(endDuck, END_SOUND_MS)
         }
         sounds.play(endSound, 1f, 1f, 1, 0, 1f)
+        // Outlasts the tone and buzz, or the phone could sleep partway through them.
+        main.removeCallbacks(stopService)
+        main.postDelayed(stopService, FINISH_MS)
     }
 
     private companion object {
         const val END_SOUND_MS = 1300L
+        const val FINISH_MS = 1600L
     }
 }

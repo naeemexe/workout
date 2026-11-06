@@ -12,9 +12,6 @@ For a bug, write what you did, what happened, what you expected, and the date if
   plan's `activeSince` (`PlanRepository.observeChoices`) after the plan was edited or re-activated. Check
   `Rotation.dayFor` for past dates with logs.
 
-- **Rest timer stalls when you leave the app.** Started a rest, pressed Home, screen stayed on. Nothing played at the
-  end; the buzz and tone came only on reopening the app, because Android freezes it in the background. Screen off while
-  on the Log page was on time. Expected them on time. Likely needs a foreground service or an alarm, plus a notification.
 
 ## Before launch: code
 
@@ -38,6 +35,7 @@ For a bug, write what you did, what happened, what you expected, and the date if
 - **(you)** Host docs/privacy-policy.md at lockedinlabs.work/privacy and docs/delete-account.md at
   lockedinlabs.work/delete-account.
 - **(you)** Confirm support@lockedinlabs.work is a real inbox (it's in the app, policy and listing).
+- **(you)** Play Console: declare the rest timer foreground service (`specialUse`, see docs/PLAY_STORE.md).
 - **(you)** Play Console: listing, data safety, content rating, closed test (12 testers for 14 days).
 - **(you)** Test end to end on a real Google account: sign-in, backup restore from the welcome screen, delete account
   (with and without erasing the phone).

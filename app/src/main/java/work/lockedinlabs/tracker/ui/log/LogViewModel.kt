@@ -99,6 +99,8 @@ class LogViewModel(
         settings.setRestSeconds(seconds)
     }
 
+    override fun onCleared() = rest.skip()
+
     fun startRest() {
         restNote = if (exercise.isNotBlank() && selectedSet > savedThrough) "then set ${selectedSet + 1}" else ""
         rest.start(defaultRestSeconds)

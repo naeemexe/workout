@@ -12,7 +12,9 @@ class RestTimerTest {
     private class Counts : RestSounds {
         @Volatile var started = 0
         @Volatile var ended = 0
+        @Volatile var skipped = 0
         override fun started() { started++ }
+        override fun skipped() { skipped++ }
         override fun fire() { ended++ }
     }
 
@@ -35,7 +37,15 @@ class RestTimerTest {
         timer.skip()
         Thread.sleep(1400)
         assertEquals(1, sounds.started)
+        assertEquals(1, sounds.skipped)
         assertEquals(0, sounds.ended)
+    }
+
+    @Test fun `skip after the end does nothing`() {
+        timer.start(1)
+        Thread.sleep(1400)
+        timer.skip()
+        assertEquals(0, sounds.skipped)
     }
 
     @Test fun `restart plays start again and ends once, on the new time`() {

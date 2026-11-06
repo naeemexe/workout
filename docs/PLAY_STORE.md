@@ -75,6 +75,8 @@ Check that `support@lockedinlabs.work` exists and is read; it's in the app, the 
     Health and fitness → Fitness info (workouts, body weight).
   - Purpose: App functionality, Account management. Not shared with third parties. Not used for ads or analytics.
   - Encrypted in transit: yes. Users can request deletion: yes (in app and at the delete-account URL).
+- **Foreground service** (App content): declare `specialUse` for the rest timer. It runs only during a rest the user
+  started, so the end tone plays on time in the background. Show this in the required video. Google can refuse it.
 - **Account deletion**: yes, in app (Profile → Delete account) and at `https://lockedinlabs.work/delete-account`.
 - **Store listing**: short description (80 chars), full description, 512×512 icon, 1024×500 feature graphic, at
   least 2 phone screenshots (Home, Log, Session plans and the welcome screen show it well).
