@@ -20,6 +20,18 @@ enum class Muscle(val label: String) {
     CALVES("Calves"),
 }
 
+/** What an exercise logs: weight and reps, a timed hold, or cardio time and distance. */
+enum class ExerciseKind(val label: String) {
+    WEIGHT("Weight"),
+    HOLD("Hold"),
+    CARDIO("Cardio");
+
+    companion object {
+        /** From saved text; anything else (older data) is a weight exercise. */
+        fun of(name: String?): ExerciseKind = entries.firstOrNull { it.name == name?.uppercase() } ?: WEIGHT
+    }
+}
+
 /** A known exercise: [primary] muscles do most of the work, [secondary] ones assist. */
 data class CatalogExercise(
     val name: String,
@@ -28,6 +40,7 @@ data class CatalogExercise(
     val aliases: List<String> = emptyList(),
     /** Section in the library ("Chest", "Legs", ...). */
     val group: String = "",
+    val kind: ExerciseKind = ExerciseKind.WEIGHT,
 )
 
 /**

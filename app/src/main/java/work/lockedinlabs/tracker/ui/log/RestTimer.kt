@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 import work.lockedinlabs.tracker.R
 
 /**
- * Countdown between sets. Tracks an end time on the monotonic clock. [RestService] keeps the app
+ * Countdown for a rest or a hold. Tracks an end time on the monotonic clock. [RestService] keeps the app
  * running while it counts, so it ends on time with the app in the background or the screen off.
  */
 class RestTimer(
@@ -41,12 +41,20 @@ class RestTimer(
     val running: Boolean get() = endsAt > 0
     val remainingSeconds: Int get() = ((remainingMs + 999) / 1000).toInt()
     val fraction: Float get() = if (totalSeconds == 0) 0f else (remainingMs / (totalSeconds * 1000f)).coerceIn(0f, 1f)
+    /** Whole seconds counted so far. */
+    val elapsedSeconds: Int get() = ((totalSeconds * 1000L - remainingMs) / 1000).toInt().coerceAtLeast(0)
 
-    fun start(seconds: Int) {
+    /**
+     * @param quiet no start sound (right after an end tone, which it would play over).
+     * @param tone play the end tone and buzz; without it, [onEnd] must start the next timer.
+     * @param onEnd runs at zero, not after [skip].
+     */
+    fun start(seconds: Int, quiet: Boolean = false, tone: Boolean = true, onEnd: () -> Unit = {}) {
         totalSeconds = seconds
         endsAt = now() + seconds * 1000L
+        remainingMs = seconds * 1000L
         job?.cancel()
-        alarm.started()
+        alarm.started(quiet)
         job = scope.launch {
             while (true) {
                 val left = endsAt - now()
@@ -55,7 +63,8 @@ class RestTimer(
                 delay(minOf(200L, left))
             }
             endsAt = 0
-            alarm.fire()
+            if (tone) alarm.fire()
+            onEnd()
         }
     }
 
@@ -76,7 +85,7 @@ class RestTimer(
 }
 
 interface RestSounds {
-    fun started()
+    fun started(quiet: Boolean)
     fun skipped()
     fun fire()
 }
@@ -108,10 +117,10 @@ class RestAlarm(context: Context) : RestSounds {
     private val stopService = Runnable { RestService.stop(app) }
 
     /** Plays over any music as it is: you've just tapped Save, so this one can stay quiet. */
-    override fun started() {
+    override fun started(quiet: Boolean) {
         main.removeCallbacks(stopService)
         RestService.start(app)
-        sounds.play(startSound, 1f, 1f, 1, 0, 1f)
+        if (!quiet) sounds.play(startSound, 1f, 1f, 1, 0, 1f)
     }
 
     override fun skipped() {

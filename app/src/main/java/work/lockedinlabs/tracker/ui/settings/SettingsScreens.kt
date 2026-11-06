@@ -130,6 +130,16 @@ fun SupportScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             )
             FaqDivider()
             Faq(
+                "How do holds work?",
+                "Tap Hold. After 5 seconds it counts down, saves the set and starts your rest.",
+            )
+            FaqDivider()
+            Faq(
+                "Do holds and cardio count?",
+                "Holds count on the muscle map. Cardio counts for your streak. Neither changes the Strength Index.",
+            )
+            FaqDivider()
+            Faq(
                 "How does my session plan rotate?",
                 "It moves on after you train. Miss a day and it waits.",
             )

@@ -17,6 +17,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalView
+import work.lockedinlabs.tracker.domain.ExerciseKind
 import work.lockedinlabs.tracker.domain.clock
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -159,10 +160,12 @@ fun LogScreen(viewModel: LogViewModel, snackbar: SnackbarHostState, onOpenPlans:
     }
 
     val rest = viewModel.rest
-    // Keep the screen awake while resting so the countdown stays visible.
+    // Keep the screen awake while a timer runs so the countdown stays visible.
     val view = LocalView.current
-    DisposableEffect(rest.running) {
-        view.keepScreenOn = rest.running
+    val hold = viewModel.hold
+    val timing = rest.running || hold.running
+    DisposableEffect(timing) {
+        view.keepScreenOn = timing
         onDispose { view.keepScreenOn = false }
     }
 
@@ -193,14 +196,19 @@ fun LogScreen(viewModel: LogViewModel, snackbar: SnackbarHostState, onOpenPlans:
 
         Spacer(Modifier.height(24.dp))
         DayEntries(viewModel)
-        Spacer(Modifier.height(if (rest.running) 120.dp else 24.dp))
+        Spacer(Modifier.height(if (timing) 120.dp else 24.dp))
     }
-    if (rest.running) {
-        RestPanel(
-            rest = rest,
-            note = viewModel.restNote,
-            modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp),
-        )
+    val panel = Modifier.align(Alignment.BottomCenter).padding(12.dp)
+    if (hold.running) {
+        TimerPanel(hold, if (viewModel.gettingReady) "Get ready" else "Hold · ${viewModel.exercise}", panel) {
+            TextButton(onClick = viewModel::stopHold) { Text(if (viewModel.gettingReady) "Cancel" else "Stop") }
+        }
+    } else if (rest.running) {
+        TimerPanel(rest, if (viewModel.restNote.isEmpty()) "Resting" else "Resting · ${viewModel.restNote}", panel) {
+            OutlinedButton(onClick = { rest.add(30) }) { Text("+30s") }
+            Spacer(Modifier.width(8.dp))
+            TextButton(onClick = rest::skip) { Text("Skip") }
+        }
     }
     }
 
@@ -286,6 +294,12 @@ private fun ColumnScope.ExerciseLogger(viewModel: LogViewModel, focus: FocusMana
                     Text(s.headline(), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold, color = Gain)
                 }
             }
+            if (viewModel.canPickKind) {
+                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Type", style = MaterialTheme.typography.titleMedium, modifier = Modifier.width(LABEL_WIDTH + PEEK))
+                    KindChips(viewModel.exerciseKind, viewModel::pickKind)
+                }
+            }
             if (viewModel.isCustomExercise) {
                 Text(
                     "Custom exercise · set its muscles in More → Exercises",
@@ -297,20 +311,44 @@ private fun ColumnScope.ExerciseLogger(viewModel: LogViewModel, focus: FocusMana
         }
 
         Spacer(Modifier.height(20.dp))
-        SetSelector(viewModel.sets.size, viewModel.selectedSet, viewModel.savedThrough, viewModel::selectSet, viewModel::addSet)
-        Spacer(Modifier.height(16.dp))
         val current = viewModel.current
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            ValueField("Weight", current.weight, viewModel::onWeightChange, KeyboardType.Decimal, suffix = "lb", modifier = Modifier.weight(1f))
-            ValueField(
-                "Reps", current.reps, viewModel::onRepsChange, KeyboardType.Number,
-                // Hint with the previous set's reps so repeating them is one glance away.
-                placeholder = viewModel.sets.getOrNull(viewModel.selectedSet - 1)?.reps,
-                imeAction = ImeAction.Done, onDone = { focus.clearFocus() },
-                modifier = Modifier.weight(1f),
-            )
+        // Cardio is one entry a day, so no set bubbles.
+        val oneEntry = current.kind == ExerciseKind.CARDIO && viewModel.sets.size == 1
+        if (!oneEntry) {
+            SetSelector(viewModel.sets.size, viewModel.selectedSet, viewModel.savedThrough, viewModel::selectSet, viewModel::addSet)
+            Spacer(Modifier.height(16.dp))
         }
-        if (viewModel.sets.size > 1 || !current.isBlank) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            when (current.kind) {
+                ExerciseKind.WEIGHT -> {
+                    ValueField("Weight", current.weight, viewModel::onWeightChange, KeyboardType.Decimal, suffix = "lb", modifier = Modifier.weight(1f))
+                    ValueField(
+                        "Reps", current.reps, viewModel::onRepsChange, KeyboardType.Number,
+                        // Hint with the previous set's reps so repeating them is one glance away.
+                        placeholder = viewModel.sets.getOrNull(viewModel.selectedSet - 1)?.reps,
+                        imeAction = ImeAction.Done, onDone = { focus.clearFocus() },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                ExerciseKind.HOLD -> {
+                    ValueField("Weight", current.weight, viewModel::onWeightChange, KeyboardType.Decimal, suffix = "lb", modifier = Modifier.weight(1f))
+                    ValueField(
+                        "Seconds", current.seconds, viewModel::onSecondsChange, KeyboardType.Number,
+                        imeAction = ImeAction.Done, onDone = { focus.clearFocus() },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+                ExerciseKind.CARDIO -> {
+                    ValueField("Minutes", current.minutes, viewModel::onMinutesChange, KeyboardType.Number, modifier = Modifier.weight(1f))
+                    ValueField(
+                        "Miles", current.miles, viewModel::onMilesChange, KeyboardType.Decimal,
+                        imeAction = ImeAction.Done, onDone = { focus.clearFocus() },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+        if (!oneEntry && (viewModel.sets.size > 1 || !current.isBlank)) {
             TextButton(onClick = viewModel::removeSelectedSet, modifier = Modifier.align(Alignment.End)) {
                 Text("Remove set ${viewModel.selectedSet + 1}", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
@@ -325,12 +363,26 @@ private fun ColumnScope.ExerciseLogger(viewModel: LogViewModel, focus: FocusMana
             shape = RoundedCornerShape(16.dp),
             modifier = Modifier.fillMaxWidth().height(56.dp),
         ) { Text(viewModel.saveLabel, style = MaterialTheme.typography.titleMedium) }
+        // Cardio has no rest timer.
+        if (current.kind == ExerciseKind.CARDIO) return
         Spacer(Modifier.height(16.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (current.kind == ExerciseKind.HOLD) {
+                FilledTonalButton(
+                    onClick = { focus.clearFocus(); viewModel.startHold() },
+                    enabled = viewModel.canHold,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.weight(1f).height(52.dp),
+                ) {
+                    Icon(Icons.Filled.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(current.seconds.toIntOrNull()?.let { "Hold ${clock(it)}" } ?: "Hold", style = MaterialTheme.typography.titleSmall)
+                }
+            }
             // Done with a set? Start resting; at zero the next set is selected.
             FilledTonalButton(
                 onClick = { focus.clearFocus(); viewModel.startRest() },
-                enabled = !viewModel.rest.running,
+                enabled = !viewModel.rest.running && !viewModel.hold.running,
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.weight(1f).height(52.dp),
             ) {
@@ -393,9 +445,29 @@ private fun RestTimeMenu(selected: Int, onSelect: (Int) -> Unit) {
     }
 }
 
-/** Countdown pinned to the bottom of the Log page while resting. */
+/** Weight, Hold or Cardio, for your own exercises. */
 @Composable
-private fun RestPanel(rest: RestTimer, note: String, modifier: Modifier) {
+fun KindChips(selected: ExerciseKind, onSelect: (ExerciseKind) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ExerciseKind.entries.forEach { kind ->
+            val isSelected = kind == selected
+            SuggestionChip(
+                onClick = { onSelect(kind) },
+                label = { Text(kind.label) },
+                colors = SuggestionChipDefaults.suggestionChipColors(
+                    containerColor = selectedFill(isSelected),
+                    labelColor = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                ),
+                border = selectedBorder(isSelected),
+                modifier = Modifier.semantics { if (isSelected) stateDescription = "Selected" },
+            )
+        }
+    }
+}
+
+/** Countdown pinned to the bottom of the Log page during a rest or a hold. */
+@Composable
+private fun TimerPanel(timer: RestTimer, title: String, modifier: Modifier, actions: @Composable () -> Unit) {
     Card(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(20.dp),
@@ -405,16 +477,14 @@ private fun RestPanel(rest: RestTimer, note: String, modifier: Modifier) {
         Column(Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(if (note.isEmpty()) "Resting" else "Resting · $note", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(clock(rest.remainingSeconds), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(clock(timer.remainingSeconds), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                 }
-                OutlinedButton(onClick = { rest.add(30) }) { Text("+30s") }
-                Spacer(Modifier.width(8.dp))
-                TextButton(onClick = rest::skip) { Text("Skip") }
+                actions()
             }
             Spacer(Modifier.height(10.dp))
             LinearProgressIndicator(
-                progress = { rest.fraction },
+                progress = { timer.fraction },
                 modifier = Modifier.fillMaxWidth().height(6.dp).clip(RoundedCornerShape(50)),
             )
         }

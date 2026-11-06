@@ -85,6 +85,7 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import work.lockedinlabs.tracker.data.PlanDay
 import work.lockedinlabs.tracker.domain.ExerciseCatalog
+import work.lockedinlabs.tracker.domain.ExerciseKind
 import work.lockedinlabs.tracker.pack.Level
 import work.lockedinlabs.tracker.pack.Pack
 import work.lockedinlabs.tracker.ui.theme.LabCard
@@ -245,6 +246,7 @@ fun PlanScreen(viewModel: PlanViewModel, onBack: () -> Unit, modifier: Modifier 
                 nameError = viewModel.nameError(i),
                 expanded = viewModel.expanded == i,
                 knownExercises = viewModel.knownExercises,
+                kindOf = viewModel.kindOf,
                 onToggle = { viewModel.toggleExpanded(i) },
                 onRename = { viewModel.rename(i, it) },
                 onRest = { viewModel.setRest(i, it) },
@@ -285,6 +287,7 @@ private fun DayCard(
     nameError: String?,
     expanded: Boolean,
     knownExercises: List<String>,
+    kindOf: (String) -> ExerciseKind,
     onToggle: () -> Unit,
     onRename: (String) -> Unit,
     onRest: (Boolean) -> Unit,
@@ -365,7 +368,7 @@ private fun DayCard(
                 if (!day.isRest) {
                     ColorPicker(day.color, onColor)
                     Spacer(Modifier.height(8.dp))
-                    ExerciseList(day.exercises, day.sets, onMove, onRemove, onSets)
+                    ExerciseList(day.exercises, day.sets, kindOf, onMove, onRemove, onSets)
                     AddExerciseField(day, knownExercises, onAdd)
                 }
             }
@@ -426,6 +429,7 @@ private val ROW_HEIGHT = 52.dp
 private fun ExerciseList(
     exercises: List<String>,
     sets: List<Int>,
+    kindOf: (String) -> ExerciseKind,
     onMove: (from: Int, to: Int) -> Unit,
     onRemove: (Int) -> Unit,
     onSets: (exercise: Int, sets: Int) -> Unit,
@@ -509,7 +513,9 @@ private fun ExerciseList(
                         )
                     }
                 }
-                SetCountPicker(sets.getOrElse(j) { PlanDay.DEFAULT_SETS }, enabled = dragging == null) { onSets(j, it) }
+                if (kindOf(name) != ExerciseKind.CARDIO) {
+                    SetCountPicker(sets.getOrElse(j) { PlanDay.DEFAULT_SETS }, enabled = dragging == null) { onSets(j, it) }
+                }
                 IconButton(onClick = { onRemove(j) }, enabled = dragging == null) {
                     Icon(Icons.Outlined.Delete, contentDescription = "Remove $name", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }

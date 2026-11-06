@@ -22,8 +22,10 @@ import work.lockedinlabs.tracker.data.ProgressionRule
 import work.lockedinlabs.tracker.data.ruleFor
 import work.lockedinlabs.tracker.data.CustomExercise
 import work.lockedinlabs.tracker.data.CustomExerciseRepository
+import work.lockedinlabs.tracker.data.kinds
 import work.lockedinlabs.tracker.data.lookup
 import work.lockedinlabs.tracker.domain.Advice
+import work.lockedinlabs.tracker.domain.ExerciseKind
 import work.lockedinlabs.tracker.domain.Muscle
 import work.lockedinlabs.tracker.domain.MuscleState
 import work.lockedinlabs.tracker.domain.MuscleStats
@@ -124,6 +126,7 @@ internal fun computeStats(
 ): HomeStats? {
     if (logs.isEmpty()) return null
     val lookup = customs.lookup()
+    val kinds = customs.kinds()
     val index = StrengthIndex.compute(logs, today, lookup)
     val series = index.index
     val activeSince = today.minusDays(30).toEpochDay()
@@ -134,7 +137,7 @@ internal fun computeStats(
         streakDays = Streak.days(logs.mapTo(HashSet()) { it.epochDay }, today.toEpochDay()),
         // Home only shows what you're ready to step up on, most recently trained first.
         readyToStepUp = logs.groupBy { it.exercise.lowercase() }.values
-            .filter { history -> history.any { it.epochDay >= activeSince } }
+            .filter { history -> history.any { it.epochDay >= activeSince } && kinds(history.first().exercise) == ExerciseKind.WEIGHT }
             .mapNotNull { Progression.suggest(it, rules.ruleFor(it.first().exercise)) }
             .filter { it.advice == Advice.STEP_UP }
             .sortedByDescending { it.last.epochDay },

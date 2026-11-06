@@ -13,7 +13,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
     entities = [ExerciseLog::class, PlanDay::class, DayChoice::class, Profile::class, WeightEntry::class, Plan::class, ProgressionRule::class, CustomExercise::class],
-    version = 14,
+    version = 15,
     autoMigrations = [
         AutoMigration(from = 2, to = 3),
         AutoMigration(from = 3, to = 4),
@@ -26,6 +26,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         AutoMigration(from = 11, to = 12),
         AutoMigration(from = 12, to = 13),
         AutoMigration(from = 13, to = 14),
+        AutoMigration(from = 14, to = 15),
     ],
 )
 @TypeConverters(Converters::class)

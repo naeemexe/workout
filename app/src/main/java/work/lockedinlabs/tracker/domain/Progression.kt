@@ -53,7 +53,7 @@ object Progression {
     /** @param history every log for a single exercise, any order. */
     fun suggest(history: List<ExerciseLog>, rule: Rule = Rule.Default): Suggestion? {
         val sessions = history
-            .filter { it.sets.isNotEmpty() }
+            .filter { log -> log.sets.isNotEmpty() && log.sets.all { it.kind == ExerciseKind.WEIGHT } }
             .groupBy { it.epochDay }
             .toSortedMap(reverseOrder())
             .values

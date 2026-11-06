@@ -17,6 +17,7 @@ import work.lockedinlabs.tracker.data.PlanRepository
 import work.lockedinlabs.tracker.data.WorkoutRepository
 import work.lockedinlabs.tracker.domain.CatalogExercise
 import work.lockedinlabs.tracker.domain.ExerciseCatalog
+import work.lockedinlabs.tracker.domain.ExerciseKind
 import work.lockedinlabs.tracker.domain.Muscle
 
 /** One row of the exercise library: a built-in exercise ([catalog]) or one of yours ([custom] muscles, if set). */
@@ -24,6 +25,7 @@ data class LibraryEntry(val name: String, val catalog: CatalogExercise?, val cus
     val isCustom: Boolean get() = catalog == null
     val primary: Set<Muscle> get() = catalog?.primary ?: custom?.primaryMuscles.orEmpty()
     val secondary: Set<Muscle> get() = catalog?.secondary ?: custom?.secondaryMuscles.orEmpty()
+    val kind: ExerciseKind get() = catalog?.kind ?: custom?.exerciseKind ?: ExerciseKind.WEIGHT
 }
 
 class ExercisesViewModel(
@@ -113,6 +115,11 @@ class ExercisesViewModel(
         viewModelScope.launch { customs.setMuscles(name, emptySet(), emptySet()) }
         query = ""
         selected = name
+    }
+
+    fun setKind(kind: ExerciseKind) {
+        val entry = selectedEntry?.takeIf { it.isCustom } ?: return
+        viewModelScope.launch { customs.setKind(entry.name, kind) }
     }
 
     /** Tap cycles a muscle: off → primary → secondary → off. */

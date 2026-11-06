@@ -30,6 +30,7 @@ import work.lockedinlabs.tracker.data.CustomExercise
 import work.lockedinlabs.tracker.domain.ExerciseCatalog
 import work.lockedinlabs.tracker.data.Profile
 import work.lockedinlabs.tracker.data.SetEntry
+import work.lockedinlabs.tracker.domain.ExerciseKind
 import work.lockedinlabs.tracker.data.WeightEntry
 import java.time.LocalDate
 
@@ -52,9 +53,9 @@ sealed interface SyncStatus {
  * another phone restore. Compact layout (one document per workout day keeps reads/writes low):
  *
  *   users/{uid}                  profile, profileU, plans [{i, n, a (active), s (active since), c, d [days]}],
- *                                rules [{i, n, df, r, inc, st, mn, dp, e, c}], cx [{n, p, s, c}] (custom exercises),
+ *                                rules [{i, n, df, r, inc, st, mn, dp, e, c}], cx [{n, p, s, c, k (kind)}] (custom exercises),
  *                                planU (plans + rules + custom exercises)
- *   users/{uid}/days/{yyyy-MM-dd} d, c (plan day index), cn (its name), ex [{n, s:[w,r,w,r…], t}], w (body weight), u, su
+ *   users/{uid}/days/{yyyy-MM-dd} d, c (plan day index), cn (its name), ex [{n, s:[w,r,w,r…], x:[sec,min,mi…] (holds, cardio), t}], w (body weight), u, su
  *
  * Conflicts resolve per day (and for profile / plan) by last edit wins, using `u` (the edit time).
  * `su` is the server write time and only drives incremental downloads.
@@ -178,6 +179,7 @@ class SyncManager(
                             primary = m["p"] as? String ?: "",
                             secondary = m["s"] as? String ?: "",
                             createdAt = (m["c"] as? Number)?.toLong() ?: System.currentTimeMillis(),
+                            kind = ExerciseKind.of(m["k"] as? String).name, // older docs have none
                         )
                     },
                 )
@@ -209,7 +211,7 @@ class SyncManager(
                 )
             }
             data["plan"] = FieldValue.delete() // single-plan layout from before multiple plans
-            data["cx"] = db.customExerciseDao().getAll().map { mapOf("n" to it.name, "p" to it.primary, "s" to it.secondary, "c" to it.createdAt) }
+            data["cx"] = db.customExerciseDao().getAll().map { mapOf("n" to it.name, "p" to it.primary, "s" to it.secondary, "c" to it.createdAt, "k" to it.kind) }
             data["rules"] = db.ruleDao().getAll().map { r ->
                 mapOf(
                     "i" to r.id, "n" to r.name, "df" to r.isDefault, "r" to r.setReps, "inc" to r.increment,
@@ -254,7 +256,7 @@ class SyncManager(
         val entries = (doc.get("ex") as? List<Map<String, Any?>>).orEmpty().map { e ->
             ExerciseLog(
                 exercise = e["n"] as String,
-                sets = (e["s"] as List<*>).map { (it as Number).toDouble() }.chunked(2) { (w, r) -> SetEntry(w, r.toInt()) },
+                sets = setsFrom(e),
                 epochDay = day,
                 createdAt = (e["t"] as? Number)?.toLong() ?: 0,
             )
@@ -287,7 +289,7 @@ class SyncManager(
                         "c" to choice?.dayIndex,
                         "cn" to choice?.name,
                         "ex" to logs.sortedBy { it.createdAt }.map { l ->
-                            mapOf("n" to l.exercise, "s" to l.sets.flatMap { listOf(it.weightLbs, it.reps) }, "t" to l.createdAt)
+                            setsTo(l.sets) + mapOf("n" to l.exercise, "t" to l.createdAt)
                         },
                         "w" to weight?.lbs,
                         "u" to at,
@@ -370,4 +372,19 @@ class SyncManager(
         color = (m["k"] as? Number)?.toInt(),
         setCounts = m["sc"] as? String ?: "",
     )
+}
+
+/** "s" is weight, reps per set; "x" is seconds, minutes, miles per set, only when holds or cardio are in the log. */
+internal fun setsTo(sets: List<SetEntry>): Map<String, Any> = buildMap {
+    put("s", sets.flatMap { listOf(it.weightLbs, it.reps) })
+    if (sets.any { it.kind != ExerciseKind.WEIGHT }) put("x", sets.flatMap { listOf(it.seconds, it.minutes, it.miles) })
+}
+
+/** Older docs have no "x". */
+internal fun setsFrom(e: Map<String, Any?>): List<SetEntry> {
+    val base = (e["s"] as List<*>).map { (it as Number).toDouble() }.chunked(2) { (w, r) -> SetEntry(w, r.toInt()) }
+    val extra = (e["x"] as? List<*>)?.map { (it as Number).toDouble() }?.chunked(3) ?: return base
+    return base.mapIndexed { i, set ->
+        extra.getOrNull(i)?.let { (s, m, mi) -> set.copy(seconds = s.toInt(), minutes = m.toInt(), miles = mi) } ?: set
+    }
 }

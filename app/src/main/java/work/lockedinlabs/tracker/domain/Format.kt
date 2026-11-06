@@ -27,9 +27,31 @@ fun Double.lb(): String = if (this <= 0.0) "bodyweight" else "${weightText()} lb
 
 fun ExerciseLog.setText(): String = sets.summary()
 
-/** "50 lb · 3 × 10", "50 lb · 10, 10, 8", or "50×10, 55×8 lb" when weights differ. */
+/** "30 min · 2.5 mi", or "30 min" with no distance. */
+private fun SetEntry.cardioText(): String = if (miles > 0.0) "$minutes min · ${miles.weightText()} mi" else "$minutes min"
+
+/** "3 × 0:45", "0:45, 0:40", with "25 lb · " in front when weighted; a mix of weights is listed set by set. */
+private fun List<SetEntry>.holdText(): String {
+    val weight = map { it.weightLbs }.distinct().singleOrNull()
+        ?: return joinToString(", ") { if (it.weightLbs > 0.0) "${it.weightLbs.weightText()} lb ${clock(it.seconds)}" else clock(it.seconds) }
+    val times = map { it.seconds }
+    val text = if (size > 1 && times.distinct().size == 1) "$size × ${clock(times[0])}" else times.joinToString(", ") { clock(it) }
+    return if (weight > 0.0) "${weight.lb()} · $text" else text
+}
+
+/** "50 lb · 3 × 10", "50 lb · 10, 10, 8", or "50×10, 55×8 lb" when weights differ. Holds and cardio show their time. */
 fun List<SetEntry>.summary(): String {
     if (isEmpty()) return ""
+    if (any { it.kind != ExerciseKind.WEIGHT }) {
+        // Normally all one kind; a custom exercise whose type changed can be mixed.
+        return groupBy { it.kind }.entries.joinToString(", ") { (kind, sets) ->
+            when (kind) {
+                ExerciseKind.WEIGHT -> sets.summary()
+                ExerciseKind.HOLD -> sets.holdText()
+                ExerciseKind.CARDIO -> sets.joinToString(", ") { it.cardioText() }
+            }
+        }
+    }
     val weight = map { it.weightLbs }.distinct().singleOrNull()
     val reps = map { it.reps }
     return when {

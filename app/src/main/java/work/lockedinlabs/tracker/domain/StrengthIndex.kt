@@ -15,9 +15,15 @@ data class ExerciseSeries(val name: String, val points: List<StrengthPoint>)
 
 data class IndexSeries(val index: List<StrengthPoint>, val exercises: List<ExerciseSeries>)
 
-/** Estimated one-rep max (Epley). Bodyweight moves (0 lb) fall back to reps so they still trend. */
-fun SetEntry.estimatedMax(): Double =
-    if (weightLbs <= 0.0) reps.toDouble() else weightLbs * (1 + reps / 30.0)
+/**
+ * Estimated one-rep max (Epley). Bodyweight moves (0 lb) fall back to reps so they still trend.
+ * Holds and cardio have none, so they stay out of the index.
+ */
+fun SetEntry.estimatedMax(): Double = when {
+    kind != ExerciseKind.WEIGHT -> 0.0
+    weightLbs <= 0.0 -> reps.toDouble()
+    else -> weightLbs * (1 + reps / 30.0)
+}
 
 /** Best set of the entry. */
 fun ExerciseLog.estimatedMax(): Double = sets.maxOfOrNull { it.estimatedMax() } ?: 0.0

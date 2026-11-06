@@ -30,12 +30,14 @@ import work.lockedinlabs.tracker.data.RuleRepository
 import work.lockedinlabs.tracker.data.ruleFor
 import work.lockedinlabs.tracker.data.CustomExercise
 import work.lockedinlabs.tracker.data.CustomExerciseRepository
+import work.lockedinlabs.tracker.data.kinds
 import work.lockedinlabs.tracker.data.lookup
 import work.lockedinlabs.tracker.data.PlanRepository
 import work.lockedinlabs.tracker.data.SettingsStore
 import work.lockedinlabs.tracker.data.SetEntry
 import work.lockedinlabs.tracker.data.WorkoutRepository
 import work.lockedinlabs.tracker.domain.ExerciseCatalog
+import work.lockedinlabs.tracker.domain.ExerciseKind
 import work.lockedinlabs.tracker.domain.Advice
 import work.lockedinlabs.tracker.domain.Progression
 import work.lockedinlabs.tracker.domain.Suggestion
@@ -45,16 +47,34 @@ import work.lockedinlabs.tracker.domain.weightText
 import work.lockedinlabs.tracker.domain.normalizeDecimal
 import java.time.LocalDate
 
-/** What's typed for one set. A set "counts" once it has a valid weight and reps. */
-data class SetInput(val weight: String = "", val reps: String = "") {
+/**
+ * What's typed for one set. A set "counts" once it has a valid weight and reps, or seconds for a hold (weight is
+ * optional), or minutes for cardio (miles are optional).
+ */
+data class SetInput(
+    val weight: String = "",
+    val reps: String = "",
+    val kind: ExerciseKind = ExerciseKind.WEIGHT,
+    val seconds: String = "",
+    val minutes: String = "",
+    val miles: String = "",
+) {
     val entry: SetEntry?
-        get() {
-            val w = weight.toDoubleOrNull()?.takeIf { it >= 0.0 } ?: return null
-            val r = reps.toIntOrNull()?.takeIf { it > 0 } ?: return null
-            return SetEntry(w, r)
+        get() = when (kind) {
+            ExerciseKind.WEIGHT -> {
+                val w = weight.toDoubleOrNull()?.takeIf { it >= 0.0 }
+                val r = reps.toIntOrNull()?.takeIf { it > 0 }
+                if (w == null || r == null) null else SetEntry(w, r)
+            }
+            ExerciseKind.HOLD -> seconds.toIntOrNull()?.takeIf { it > 0 }?.let {
+                SetEntry(weight.toDoubleOrNull() ?: 0.0, 0, seconds = it)
+            }
+            ExerciseKind.CARDIO -> minutes.toIntOrNull()?.takeIf { it > 0 }?.let {
+                SetEntry(0.0, 0, minutes = it, miles = miles.toDoubleOrNull() ?: 0.0)
+            }
         }
     val isFilled: Boolean get() = entry != null
-    val isBlank: Boolean get() = weight.isEmpty() && reps.isEmpty()
+    val isBlank: Boolean get() = weight.isEmpty() && reps.isEmpty() && seconds.isEmpty() && minutes.isEmpty() && miles.isEmpty()
 }
 
 /** A tappable exercise in the Exercise row or the "+ Other" results. */
@@ -87,6 +107,11 @@ class LogViewModel(
 ) : ViewModel() {
     /** Rest between sets (Save starts it; the Rest button restarts it). */
     val rest = RestTimer(viewModelScope, alarm)
+    /** A hold: the get-ready, then the hold itself. Same sounds and background service as the rest. */
+    val hold = RestTimer(viewModelScope, alarm)
+    /** The hold timer is on its get-ready; the hold itself comes next. */
+    var gettingReady by mutableStateOf(false)
+        private set
     /** What comes after the rest, shown on the rest panel ("then set 2", "then Squat"). */
     var restNote by mutableStateOf("")
         private set
@@ -99,21 +124,60 @@ class LogViewModel(
         settings.setRestSeconds(seconds)
     }
 
-    override fun onCleared() = rest.skip()
+    override fun onCleared() {
+        rest.skip()
+        hold.skip()
+    }
 
     fun startRest() {
         restNote = if (exercise.isNotBlank() && selectedSet > savedThrough) "then set ${selectedSet + 1}" else ""
         rest.start(defaultRestSeconds)
     }
 
-    /** Save starts the rest by itself; it has already moved on to the next set, or to the next exercise. */
-    private fun restAfterSave(nextExercise: Boolean) {
+    /**
+     * Save starts the rest by itself; it has already moved on to the next set, or to the next exercise.
+     * @param quiet no start sound, because the end of a hold has just played its tone.
+     */
+    private fun restAfterSave(nextExercise: Boolean, quiet: Boolean = false) {
         restNote = when {
             exercise.isBlank() -> ""
             nextExercise -> "then $exercise"
             else -> "then set ${selectedSet + 1}"
         }
-        rest.start(defaultRestSeconds)
+        rest.start(defaultRestSeconds, quiet = quiet)
+    }
+
+    /** Seconds typed for the selected set, if it's a hold that can start. */
+    private val holdSeconds: Int? get() = current.takeIf { it.kind == ExerciseKind.HOLD }?.seconds?.toIntOrNull()?.takeIf { it > 0 }
+
+    val canHold: Boolean get() = exercise.isNotBlank() && holdSeconds != null && !hold.running
+
+    /** Get ready, hold, then the set saves itself and the rest starts. */
+    fun startHold() {
+        val seconds = holdSeconds?.takeIf { canHold } ?: return
+        rest.skip()
+        gettingReady = true
+        hold.start(GET_READY_SECONDS, tone = false) {
+            gettingReady = false
+            hold.start(seconds) { finishHold(seconds, quietRest = true) }
+        }
+    }
+
+    /** Stop: during the get-ready it just cancels; during the hold it saves the time you held. */
+    fun stopHold() {
+        val held = if (gettingReady) 0 else hold.elapsedSeconds
+        cancelHold()
+        if (held > 0) finishHold(held, quietRest = false)
+    }
+
+    private fun cancelHold() {
+        hold.skip()
+        gettingReady = false
+    }
+
+    private fun finishHold(seconds: Int, quietRest: Boolean) {
+        sets[selectedSet] = current.copy(seconds = seconds.toString())
+        save(quietRest)
     }
 
     var allLogs by mutableStateOf<List<ExerciseLog>>(emptyList())
@@ -127,6 +191,7 @@ class LogViewModel(
     private var choiceRecords by mutableStateOf<List<DayChoice>>(emptyList())
     private var rules by mutableStateOf<List<ProgressionRule>>(emptyList())
     private var customs by mutableStateOf<List<CustomExercise>>(emptyList())
+    private var customsLoaded by mutableStateOf(false)
     private var choicesLoaded by mutableStateOf(false)
     private var dayNames by mutableStateOf<Map<Long, String>>(emptyMap())
     var date by mutableStateOf(LocalDate.now())
@@ -204,6 +269,7 @@ class LogViewModel(
         private set
 
     fun openSearch() {
+        cancelHold()
         searching = true
         exercise = ""
     }
@@ -272,12 +338,27 @@ class LogViewModel(
 
     /** The selected exercise is ready to step up (same rule as Home's "Next session"); null otherwise. */
     val stepUp: Suggestion? by derivedStateOf {
-        matchedExercise?.let { name -> Progression.suggest(allLogs.filter { it.exercise.equals(name, ignoreCase = true) }, rules.ruleFor(name)) }
+        matchedExercise?.takeIf { exerciseKind == ExerciseKind.WEIGHT }?.let { name -> Progression.suggest(allLogs.filter { it.exercise.equals(name, ignoreCase = true) }, rules.ruleFor(name)) }
             ?.takeIf { it.advice == Advice.STEP_UP }
     }
 
     /** A custom exercise you haven't given muscles yet (More → Exercises), so it won't count on the muscle map. */
-    val isCustomExercise by derivedStateOf { exercise.isNotBlank() && customs.lookup()(exercise) == null }
+    val isCustomExercise by derivedStateOf {
+        exercise.isNotBlank() && exerciseKind != ExerciseKind.CARDIO && customs.lookup()(exercise) == null
+    }
+
+    /** What the selected exercise logs. */
+    val exerciseKind: ExerciseKind by derivedStateOf { customs.kinds()(exercise) }
+
+    /** Your own exercise with nothing logged yet: its type can be picked right here. */
+    val canPickKind by derivedStateOf {
+        exercise.isNotBlank() && ExerciseCatalog.find(exercise) == null && allLogs.none { it.exercise.equals(exercise.trim(), ignoreCase = true) }
+    }
+
+    fun pickKind(kind: ExerciseKind) {
+        val name = exercise.trim()
+        viewModelScope.launch { customExercises.setKind(name, kind) }
+    }
 
     /** Sets planned for the selected exercise in today's session (More → Session plans), or null if none. */
     val plannedSets: Int? by derivedStateOf {
@@ -303,13 +384,17 @@ class LogViewModel(
     /** Saves run one at a time so quick taps can't create two logs for the same exercise. */
     private val saving = Mutex()
 
-    val canSave by derivedStateOf { exercise.isNotBlank() && current.isFilled }
+    val canSave by derivedStateOf { exercise.isNotBlank() && current.isFilled && !hold.running }
 
     /** What Save says: why it's disabled, "Save set 2" while working through the sets, or "Save" on the last one. */
     val saveLabel: String by derivedStateOf {
         when {
             exercise.isBlank() -> "Pick an exercise first"
-            !current.isFilled -> "Enter weight and reps"
+            !current.isFilled -> when (current.kind) {
+                ExerciseKind.WEIGHT -> "Enter weight and reps"
+                ExerciseKind.HOLD -> "Enter seconds"
+                ExerciseKind.CARDIO -> "Enter minutes"
+            }
             savingOneSet -> "Save set ${selectedSet + 1}"
             else -> "Save"
         }
@@ -324,11 +409,11 @@ class LogViewModel(
         viewModelScope.launch { plans.observeChoiceRecords().collect { choiceRecords = it } }
         viewModelScope.launch { plans.observeWeekly().collect { weekly = it } }
         viewModelScope.launch { ruleRepository.observeRules().collect { rules = it } }
-        viewModelScope.launch { customExercises.observeAll().collect { customs = it } }
+        viewModelScope.launch { customExercises.observeAll().collect { customs = it; customsLoaded = true } }
         // Day → exercise → set: whenever the day changes, start on its next exercise, set 1.
         viewModelScope.launch {
             // A custom session's name is typed on this page, so renaming it mustn't reset the exercise.
-            snapshotFlow { Triple(date, planDay?.let { it.dayIndex to if (it.isCustom) "" else it.displayName }, logsLoaded) }
+            snapshotFlow { Triple(date, planDay?.let { it.dayIndex to if (it.isCustom) "" else it.displayName }, logsLoaded && customsLoaded) }
                 .distinctUntilChanged()
                 .collect { (_, _, loaded) ->
                     customName = planDay?.takeIf { it.isCustom }?.name.orEmpty()
@@ -336,6 +421,14 @@ class LogViewModel(
                     selectNextPlanned()
                     // Opened for a specific exercise (e.g. from Home): select it once the day is set up.
                     pendingExercise?.let { selectExercise(it); pendingExercise = null }
+                }
+        }
+        // An exercise's type changed: the form follows it.
+        viewModelScope.launch {
+            snapshotFlow { exerciseKind }
+                .distinctUntilChanged()
+                .collect { kind ->
+                    if (exercise.isNotBlank() && !searching && sets.any { it.kind != kind }) selectExercise(exercise)
                 }
         }
         // A rest day in the rotation logs itself today; picking a workout or Custom replaces it.
@@ -357,6 +450,7 @@ class LogViewModel(
     }
 
     private fun selectNextPlanned(justSaved: String? = null) {
+        cancelHold()
         searching = false
         val next = nextPlanned(justSaved)
         if (next != null) selectExercise(next) else { exercise = ""; progress = Progress(); savedThrough = -1; resetSets() }
@@ -408,10 +502,16 @@ class LogViewModel(
         if (v.isEmpty() || WEIGHT_INPUT.matches(v)) sets[selectedSet] = current.copy(weight = v)
     }
     fun onRepsChange(v: String) { if (v.isEmpty() || COUNT_INPUT.matches(v)) sets[selectedSet] = current.copy(reps = v) }
+    fun onSecondsChange(v: String) { if (v.isEmpty() || COUNT_INPUT.matches(v)) sets[selectedSet] = current.copy(seconds = v) }
+    fun onMinutesChange(v: String) { if (v.isEmpty() || COUNT_INPUT.matches(v)) sets[selectedSet] = current.copy(minutes = v) }
+    fun onMilesChange(typed: String) {
+        val v = normalizeDecimal(typed)
+        if (v.isEmpty() || WEIGHT_INPUT.matches(v)) sets[selectedSet] = current.copy(miles = v)
+    }
 
     /** Tap a set to enter or edit it: a saved one, or the next one to do. */
     fun selectSet(index: Int) {
-        if (index in sets.indices && canSelectSet(index)) selectedSet = index
+        if (index in sets.indices && canSelectSet(index) && !hold.running) selectedSet = index
     }
 
     /**
@@ -419,16 +519,18 @@ class LogViewModel(
      * gets it; next time the plan's count applies again. Selected straight away if every set before it is saved.
      */
     fun addSet() {
+        if (hold.running) return
         val last = sets.last()
         if (last.isBlank) return selectSet(sets.lastIndex)
-        sets.add(SetInput(weight = last.weight))
+        sets.add(last.nextSet())
         selectSet(sets.lastIndex)
     }
 
     /** Removes the selected set; a saved one comes out of the day's log right away. */
     fun removeSelectedSet() {
+        if (hold.running) return
         val index = selectedSet
-        if (sets.size == 1) sets[0] = SetInput() else sets.removeAt(index)
+        if (sets.size == 1) sets[0] = SetInput(kind = current.kind) else sets.removeAt(index)
         selectedSet = index.coerceAtMost(sets.lastIndex)
         if (index > savedThrough) return
         savedThrough--
@@ -464,19 +566,26 @@ class LogViewModel(
      * with no plan, last time's sets.
      */
     fun selectExercise(name: String) {
+        cancelHold()
         searching = false
         exercise = matchName(name)
+        val kind = customs.kinds()(exercise)
         val logged = entriesForDate.filter { it.exercise.equals(exercise, ignoreCase = true) }.sortedBy { it.createdAt }
         val source = if (logged.isNotEmpty()) logged.flatMap { it.sets }
         else allLogs.filter { it.exercise.equals(exercise, ignoreCase = true) }.maxWithOrNull(compareBy({ it.epochDay }, { it.createdAt }))?.sets.orEmpty()
         progress = logged.firstOrNull()?.let { Progress(it.id, it.createdAt, logged.drop(1)) } ?: Progress()
         savedThrough = if (logged.isNotEmpty()) source.lastIndex else -1
-        val inputs = source.map { SetInput(it.weightLbs.weightText(), it.reps.toString()) }.toMutableList()
-        plannedSets?.let { n ->
+        // A set logged today stays as it was; from last time, only what this exercise logs now carries over.
+        val inputs = source.map { it.toInput(if (logged.isNotEmpty()) it.kind else kind) }.toMutableList()
+        if (kind == ExerciseKind.CARDIO) {
+            // One entry a day, whatever the plan says.
+            if (logged.isEmpty() && inputs.size > 1) inputs.subList(1, inputs.size).clear()
+        } else plannedSets?.let { n ->
             // A new day follows the plan: extra sets from last time are left out, missing ones start with the last weight.
             if (logged.isEmpty()) while (inputs.size > n) inputs.removeAt(inputs.lastIndex)
-            while (inputs.size < n) inputs += SetInput(weight = inputs.lastOrNull()?.weight.orEmpty())
+            while (inputs.size < n) inputs += inputs.lastOrNull()?.nextSet() ?: SetInput(kind = kind)
         }
+        if (inputs.isEmpty()) inputs += SetInput(kind = kind)
         resetSets(inputs)
         // Continue where you left off: the first set not saved yet, else the last one (tap + for another).
         if (logged.isNotEmpty()) selectedSet = minOf(source.size, sets.lastIndex)
@@ -495,13 +604,15 @@ class LogViewModel(
         sets.addAll(inputs.ifEmpty { listOf(SetInput()) })
     }
 
-    fun save() {
+    /** @param quietRest no sound as the rest starts, for a hold that just ended with its tone. */
+    fun save(quietRest: Boolean = false) {
         if (!canSave) return
         val name = matchedExercise ?: exercise.trim().replaceFirstChar { it.uppercase() }
         if (savingOneSet) {
-            saveSet(name)
+            saveSet(name, quietRest)
             return
         }
+        val cardio = current.kind == ExerciseKind.CARDIO
         val log = ExerciseLog(exercise = name, sets = sets.mapNotNull { it.entry }, epochDay = date.toEpochDay())
         val p = progress
         val mine = setOfNotNull(p.id) + p.merged.map { it.id }
@@ -517,11 +628,11 @@ class LogViewModel(
             _events.send(LogEvent.Saved(log, isPr))
         }
         selectNextPlanned(justSaved = name)
-        restAfterSave(nextExercise = true)
+        if (!cardio) restAfterSave(nextExercise = true, quiet = quietRest)
     }
 
     /** Saves the sets done so far (so nothing is lost) and jumps to the next one, if it isn't saved yet. */
-    private fun saveSet(name: String) {
+    private fun saveSet(name: String, quietRest: Boolean) {
         val advancing = selectedSet > savedThrough
         savedThrough = maxOf(savedThrough, selectedSet)
         val done = sets.take(savedThrough + 1).mapNotNull { it.entry }
@@ -537,11 +648,11 @@ class LogViewModel(
         }
         // Editing an earlier set keeps you where you are; otherwise on to the next set and rest.
         if (!advancing) return
-        // Next set starts with this set's weight if it has none yet (usually the same).
-        val weight = current.weight
+        // Next set starts with this set's weight and hold time if it has none yet (usually the same).
+        val justDone = current
         selectSet(savedThrough + 1)
-        if (current.weight.isEmpty()) sets[selectedSet] = current.copy(weight = weight)
-        restAfterSave(nextExercise = false)
+        sets[selectedSet] = current.copy(weight = current.weight.ifEmpty { justDone.weight }, seconds = current.seconds.ifEmpty { justDone.seconds })
+        restAfterSave(nextExercise = false, quiet = quietRest)
     }
 
     fun delete(log: ExerciseLog) {
@@ -557,7 +668,22 @@ class LogViewModel(
         viewModelScope.launch { repository.add(log) }
     }
 
+    /** The next set starts from this one: same weight, same hold time. */
+    private fun SetInput.nextSet() = SetInput(weight = weight, kind = kind, seconds = seconds)
+
+    /** A logged set as form text. Weight stays blank on a bodyweight hold. */
+    private fun SetEntry.toInput(kind: ExerciseKind) = SetInput(
+        weight = if (kind == ExerciseKind.WEIGHT || weightLbs > 0.0) weightLbs.weightText() else "",
+        reps = if (reps > 0) reps.toString() else "",
+        kind = kind,
+        seconds = if (seconds > 0) seconds.toString() else "",
+        minutes = if (minutes > 0) minutes.toString() else "",
+        miles = if (miles > 0.0) miles.weightText() else "",
+    )
+
     companion object {
+        private const val GET_READY_SECONDS = 5
+
         /** [loggedDayTags] value for an off-plan custom session. */
         const val CUSTOM_TAG = -1
         private val WEIGHT_INPUT = Regex("""\d{0,4}(\.\d{0,2})?""")

@@ -19,7 +19,9 @@ import work.lockedinlabs.tracker.data.PlanDay
 import work.lockedinlabs.tracker.data.PlanRepository
 import work.lockedinlabs.tracker.data.PlanWithDays
 import work.lockedinlabs.tracker.data.WorkoutRepository
+import work.lockedinlabs.tracker.data.CustomExercise
 import work.lockedinlabs.tracker.data.CustomExerciseRepository
+import work.lockedinlabs.tracker.data.kinds
 import kotlinx.coroutines.flow.combine
 import work.lockedinlabs.tracker.domain.ExerciseCatalog
 import work.lockedinlabs.tracker.domain.Rotation
@@ -54,6 +56,9 @@ class PlanViewModel(
         private set
     var knownExercises by mutableStateOf<List<String>>(emptyList())
         private set
+    private var customRows by mutableStateOf<List<CustomExercise>>(emptyList())
+    /** What each exercise logs: cardio has no set count. */
+    val kindOf by derivedStateOf { customRows.kinds() }
 
     val editingPlan by derivedStateOf { allPlans.firstOrNull { it.plan.id == editingId }?.plan }
     val cycle by derivedStateOf { Rotation.cycle(days, editingPlan?.weekly == true) }
@@ -75,6 +80,7 @@ class PlanViewModel(
             combine(workouts.observeAll(), customExercises.observeAll()) { logs, cx -> logs.map { it.exercise } + cx.map { it.name } }
                 .collect { names -> knownExercises = names.distinctBy { it.lowercase() } }
         }
+        viewModelScope.launch { customExercises.observeAll().collect { customRows = it } }
         viewModelScope.launch { sync.remoteApplied.collect { editingId?.let { load(it) } } }
     }
 

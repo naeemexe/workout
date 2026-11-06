@@ -40,15 +40,11 @@ For a bug, write what you did, what happened, what you expected, and the date if
 - **(you)** Test end to end on a real Google account: sign-in, backup restore from the welcome screen, delete account
   (with and without erasing the phone).
 
-## Features
-
-- Isometrics and cardio
-
 ## Improvements
 
 - **(you) Crash reporting.** Today only Play Console vitals. Crashlytics means a new dependency and updates to the
   privacy policy and data safety form. Decide before the closed test.
 - **Migration tests.** There are no instrumented tests. Before the first schema change after launch, test the
-  migration on a real v14 database (needs `room-testing`; ask before adding).
+  migration on a real v15 database (needs `room-testing`; ask before adding).
 - Lint: `ValueField` in `ui/log/LogScreen.kt` has the `modifier` parameter in the wrong position; merge
   `res/mipmap-anydpi-v26` into `mipmap-anydpi` (minSdk is 26); dependency updates are available.

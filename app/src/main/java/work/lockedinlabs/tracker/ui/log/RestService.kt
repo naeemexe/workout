@@ -15,7 +15,7 @@ import work.lockedinlabs.tracker.MainActivity
 import work.lockedinlabs.tracker.R
 
 /**
- * Runs only during a rest. Without it Android freezes the app in the background and the phone can
+ * Runs only during a rest or a hold. Without it Android freezes the app in the background and the phone can
  * sleep with the screen off, and the timer's end comes late. The countdown stays in [RestTimer].
  */
 class RestService : Service() {
@@ -53,7 +53,7 @@ class RestService : Service() {
         )
         return Notification.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.avatar_dumbbell)
-            .setContentTitle("Resting")
+            .setContentTitle("Timer running")
             .setContentIntent(open)
             .setOngoing(true)
             .build()

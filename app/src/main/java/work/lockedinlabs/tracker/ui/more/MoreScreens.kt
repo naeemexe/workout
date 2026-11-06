@@ -63,7 +63,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import work.lockedinlabs.tracker.domain.ExerciseKind
 import work.lockedinlabs.tracker.domain.Muscle
+import work.lockedinlabs.tracker.ui.log.KindChips
 import work.lockedinlabs.tracker.domain.MuscleState
 import work.lockedinlabs.tracker.ui.home.MuscleFigures
 import work.lockedinlabs.tracker.ui.theme.LabCard
@@ -207,12 +209,18 @@ fun ExercisesScreen(viewModel: ExercisesViewModel, onBack: () -> Unit, modifier:
                                 Spacer(Modifier.width(8.dp))
                                 Tag("Custom")
                             }
+                            if (e.kind != ExerciseKind.WEIGHT) {
+                                Spacer(Modifier.width(8.dp))
+                                Tag(e.kind.label)
+                            }
                         }
-                        Text(
-                            if (e.primary.isEmpty()) "Tap to set its muscles" else muscleLine(e.primary, e.secondary),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (e.primary.isEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        if (e.kind != ExerciseKind.CARDIO) {
+                            Text(
+                                if (e.primary.isEmpty()) "Tap to set its muscles" else muscleLine(e.primary, e.secondary),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (e.primary.isEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -290,6 +298,16 @@ fun ExerciseDetailScreen(viewModel: ExercisesViewModel, onBack: () -> Unit, modi
             )
         }
         Spacer(Modifier.height(12.dp))
+        if (e.isCustom) {
+            Text("Type", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            KindChips(e.kind, viewModel::setKind)
+            Spacer(Modifier.height(16.dp))
+        } else if (e.kind != ExerciseKind.WEIGHT) {
+            InfoRow("Type", e.kind.label)
+            Spacer(Modifier.height(8.dp))
+        }
+        if (e.kind == ExerciseKind.CARDIO) return@Column
         LabCard {
             Column(Modifier.padding(16.dp)) {
                 MuscleFigures(map)

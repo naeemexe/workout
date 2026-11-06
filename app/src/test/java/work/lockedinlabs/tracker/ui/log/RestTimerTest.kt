@@ -11,9 +11,10 @@ import org.junit.Test
 class RestTimerTest {
     private class Counts : RestSounds {
         @Volatile var started = 0
+        @Volatile var quietStarts = 0
         @Volatile var ended = 0
         @Volatile var skipped = 0
-        override fun started() { started++ }
+        override fun started(quiet: Boolean) { if (quiet) quietStarts++ else started++ }
         override fun skipped() { skipped++ }
         override fun fire() { ended++ }
     }
@@ -30,6 +31,26 @@ class RestTimerTest {
         assertEquals(0, sounds.ended)
         Thread.sleep(1400)
         assertEquals(1, sounds.ended)
+    }
+
+    @Test fun `no tone hands over to a quiet timer`() {
+        var ended = false
+        timer.start(0, tone = false) { ended = true; timer.start(1, quiet = true) }
+        Thread.sleep(200)
+        assertEquals(true, ended)
+        assertEquals(1, sounds.started)
+        assertEquals(1, sounds.quietStarts)
+        assertEquals(0, sounds.ended)
+        Thread.sleep(1200)
+        assertEquals(1, sounds.ended)
+    }
+
+    @Test fun `on end does not run after skip`() {
+        var ended = false
+        timer.start(1) { ended = true }
+        timer.skip()
+        Thread.sleep(1300)
+        assertEquals(false, ended)
     }
 
     @Test fun `no end tone after skip`() {

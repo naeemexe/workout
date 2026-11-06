@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "about": "Built-in exercises. primary muscles do most of the work, secondary ones assist (count half on the muscle map). Muscle ids: CHEST SHOULDERS BICEPS TRICEPS FOREARMS ABS OBLIQUES TRAPS UPPER_BACK LATS LOWER_BACK GLUTES QUADS HAMSTRINGS CALVES. Names and aliases are matched loosely (case, spaces, hyphens, plural s).",
+  "about": "Built-in exercises. kind is weight (the default), hold (timed) or cardio (time and distance, no muscles). primary muscles do most of the work, secondary ones assist (count half on the muscle map). Muscle ids: CHEST SHOULDERS BICEPS TRICEPS FOREARMS ABS OBLIQUES TRAPS UPPER_BACK LATS LOWER_BACK GLUTES QUADS HAMSTRINGS CALVES. Names and aliases are matched loosely (case, spaces, hyphens, plural s).",
   "exercises": [
     {"name": "Bench Press", "group": "Chest", "primary": ["CHEST"], "secondary": ["TRICEPS", "SHOULDERS"], "aliases": ["Bench", "Flat Bench", "Barbell Bench Press"]},
     {"name": "Incline Bench Press", "group": "Chest", "primary": ["CHEST", "SHOULDERS"], "secondary": ["TRICEPS"], "aliases": ["Incline Bench"]},
@@ -58,13 +58,27 @@
     {"name": "Glute Bridge", "group": "Legs", "primary": ["GLUTES"], "secondary": ["HAMSTRINGS"]},
     {"name": "Calf Raise", "group": "Legs", "primary": ["CALVES"], "aliases": ["Standing Calf Raise"]},
     {"name": "Seated Calf Raise", "group": "Legs", "primary": ["CALVES"]},
-    {"name": "Plank", "group": "Core", "primary": ["ABS"], "secondary": ["OBLIQUES"]},
-    {"name": "Side Plank", "group": "Core", "primary": ["OBLIQUES"], "secondary": ["ABS"]},
+    {"name": "Plank", "group": "Core", "kind": "hold", "primary": ["ABS"], "secondary": ["OBLIQUES"]},
+    {"name": "Side Plank", "group": "Core", "kind": "hold", "primary": ["OBLIQUES"], "secondary": ["ABS"]},
     {"name": "Crunch", "group": "Core", "primary": ["ABS"]},
     {"name": "Sit-Up", "group": "Core", "primary": ["ABS"], "aliases": ["Situp"]},
     {"name": "Cable Crunch", "group": "Core", "primary": ["ABS"]},
     {"name": "Hanging Leg Raise", "group": "Core", "primary": ["ABS"], "secondary": ["OBLIQUES", "FOREARMS"], "aliases": ["Leg Raise"]},
     {"name": "Russian Twist", "group": "Core", "primary": ["OBLIQUES"], "secondary": ["ABS"]},
-    {"name": "Ab Wheel Rollout", "group": "Core", "primary": ["ABS"], "secondary": ["LATS", "OBLIQUES"], "aliases": ["Ab Wheel", "Ab Rollout"]}
+    {"name": "Ab Wheel Rollout", "group": "Core", "primary": ["ABS"], "secondary": ["LATS", "OBLIQUES"], "aliases": ["Ab Wheel", "Ab Rollout"]},
+    {"name": "Hollow Hold", "group": "Core", "kind": "hold", "primary": ["ABS"], "aliases": ["Hollow Body Hold"]},
+    {"name": "L-Sit", "group": "Core", "kind": "hold", "primary": ["ABS"], "secondary": ["TRICEPS"]},
+    {"name": "Wall Sit", "group": "Legs", "kind": "hold", "primary": ["QUADS"], "secondary": ["GLUTES"]},
+    {"name": "Glute Bridge Hold", "group": "Legs", "kind": "hold", "primary": ["GLUTES"], "secondary": ["HAMSTRINGS"]},
+    {"name": "Dead Hang", "group": "Back", "kind": "hold", "primary": ["FOREARMS"], "secondary": ["LATS"]},
+    {"name": "Running", "group": "Cardio", "kind": "cardio", "aliases": ["Run", "Jog", "Jogging", "Treadmill"]},
+    {"name": "Walking", "group": "Cardio", "kind": "cardio", "aliases": ["Walk", "Incline Walk"]},
+    {"name": "Hiking", "group": "Cardio", "kind": "cardio", "aliases": ["Hike"]},
+    {"name": "Cycling", "group": "Cardio", "kind": "cardio", "aliases": ["Bike", "Biking", "Stationary Bike", "Spin"]},
+    {"name": "Rowing Machine", "group": "Cardio", "kind": "cardio", "aliases": ["Rower", "Erg"]},
+    {"name": "Elliptical", "group": "Cardio", "kind": "cardio"},
+    {"name": "Stair Climber", "group": "Cardio", "kind": "cardio", "aliases": ["Stairmaster", "Stairs"]},
+    {"name": "Jump Rope", "group": "Cardio", "kind": "cardio", "aliases": ["Skipping"]},
+    {"name": "Swimming", "group": "Cardio", "kind": "cardio", "aliases": ["Swim"]}
   ]
 }

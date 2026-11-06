@@ -6,6 +6,7 @@ import org.json.JSONObject
 import work.lockedinlabs.tracker.data.PlanDay
 import work.lockedinlabs.tracker.domain.CatalogExercise
 import work.lockedinlabs.tracker.domain.ExerciseCatalog
+import work.lockedinlabs.tracker.domain.ExerciseKind
 import work.lockedinlabs.tracker.domain.Muscle
 
 /**
@@ -42,8 +43,12 @@ object PackParser {
                 Muscle.entries.firstOrNull { it.name == id } ?: fail("$EXERCISES: \"$name\" has unknown muscle \"$id\"")
             }.toSet()
             val primary = muscles("primary")
-            check(primary.isNotEmpty()) { "$EXERCISES: \"$name\" needs at least one primary muscle" }
-            CatalogExercise(name, primary, muscles("secondary") - primary, o.optJSONArray("aliases").strings(), o.optString("group"))
+            val kind = o.optString("kind", "weight").let { k ->
+                ExerciseKind.entries.firstOrNull { it.name.equals(k, ignoreCase = true) } ?: fail("$EXERCISES: \"$name\" has unknown kind \"$k\"")
+            }
+            if (kind == ExerciseKind.CARDIO) check(primary.isEmpty()) { "$EXERCISES: \"$name\" is cardio, so it has no muscles" }
+            else check(primary.isNotEmpty()) { "$EXERCISES: \"$name\" needs at least one primary muscle" }
+            CatalogExercise(name, primary, muscles("secondary") - primary, o.optJSONArray("aliases").strings(), o.optString("group"), kind)
         }
         val clashes = list.flatMap { e -> (listOf(e.name) + e.aliases).map { ExerciseCatalog.key(it) to e.name } }
             .groupBy({ it.first }, { it.second }).filterValues { it.distinct().size > 1 }

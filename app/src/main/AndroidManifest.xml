@@ -32,7 +32,7 @@
             android:stopWithTask="true">
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Rest timer between workout sets, started by the user. Plays a tone when it ends." />
+                android:value="Hold and rest timers between workout sets, started by the user. Plays a tone when it ends." />
         </service>
     </application>
 

@@ -31,7 +31,7 @@ before it ships.
 ## Common edits
 
 - **Add an exercise**: add a line to `exercises.json` with `name`, `group`, `primary` and optional `secondary` and
-  `aliases`.
+  `aliases`. Add `"kind": "hold"` for a timed exercise, or `"kind": "cardio"` with no muscles for cardio.
 - **Add a ready-made plan**: copy a plan in `session-plans.json`, give it a new `id`, and list its days in order.
   Use `{"rest": true}` for a rest day. Days repeat in order.
 - **Tune the science**: change a number in `training-science.json` (for example `detrainingGraceDays`). Keep the
