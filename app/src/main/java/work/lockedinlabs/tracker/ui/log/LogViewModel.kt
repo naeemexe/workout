@@ -162,12 +162,30 @@ class LogViewModel(
         }
     }
 
-    /** Stop: during the get-ready it just cancels; after that it saves the time so far. */
+    /** Seconds on the clock when you tapped Stop, waiting for Save or Discard. */
+    private var stoppedSeconds by mutableStateOf<Int?>(null)
+
+    /** The stopped time as the popup shows it ("0:12", "12 min"); null when there's no popup. */
+    val stoppedText: String?
+        get() = stoppedSeconds?.let { if (current.kind == ExerciseKind.CARDIO) "${timedValue(it)} min" else clock(it) }
+
+    /** Stop: during the get-ready, or with no time to save, it just cancels; otherwise it asks what to do. */
     fun stopHold() {
         val elapsed = if (gettingReady) 0 else hold.elapsedSeconds
+        cancelHold()
+        if (timedValue(elapsed) > 0) stoppedSeconds = elapsed
+    }
+
+    /** Throws the time away: nothing saved, no rest. */
+    fun discardStopped() {
+        stoppedSeconds = null
+    }
+
+    fun saveStopped() {
+        val elapsed = stoppedSeconds ?: return
+        stoppedSeconds = null
         val index = selectedSet
         val target = current.seconds
-        cancelHold()
         finishTimed(elapsed, quietRest = false)
         // A set cut short doesn't shorten the next one.
         if (selectedSet == index + 1 && current.kind == ExerciseKind.HOLD) sets[selectedSet] = current.copy(seconds = target)
@@ -178,8 +196,11 @@ class LogViewModel(
         gettingReady = false
     }
 
+    /** What [seconds] saves as: seconds for a hold, the nearest minute for cardio. */
+    private fun timedValue(seconds: Int) = if (current.kind == ExerciseKind.CARDIO) (seconds + 30) / 60 else seconds
+
     private fun finishTimed(seconds: Int, quietRest: Boolean) {
-        val value = if (current.kind == ExerciseKind.CARDIO) (seconds + 30) / 60 else seconds
+        val value = timedValue(seconds)
         if (value <= 0) return
         sets[selectedSet] = if (current.kind == ExerciseKind.CARDIO) current.copy(minutes = value.toString()) else current.copy(seconds = value.toString())
         save(quietRest)

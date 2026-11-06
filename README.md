@@ -12,7 +12,7 @@ A simple Android workout tracker. Log what you lift; watch your strength chart l
   a buzz and tone when it ends, also with the app in the background or the screen off. Sounds follow notification
   volume and silent mode, and the tone briefly dips music.
   Hold exercises (Plank, Wall Sit, ...) and cardio (Running, Cycling, ...) set their time with a slider. Start counts
-  down after a 5 second get ready; at zero the set saves itself, and a hold's rest starts. Stop saves the time so far.
+  down after a 5 second get ready; at zero the set saves itself, and a hold's rest starts. Stop asks whether to save the time so far or discard it; discarding starts no rest.
   Past days and saved sets show Save instead of Start. Cardio is one entry a day with optional miles and no rest
   timer. After the last exercise in the row the page stays there. Holds count on the muscle map; neither counts
   toward the Strength Index or step-up advice, and cardio stays off the muscle map.

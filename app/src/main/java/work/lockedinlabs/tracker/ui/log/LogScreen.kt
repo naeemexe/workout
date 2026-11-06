@@ -57,6 +57,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
@@ -219,6 +220,16 @@ fun LogScreen(viewModel: LogViewModel, snackbar: SnackbarHostState, onOpenPlans:
             TextButton(onClick = rest::skip) { Text("Skip") }
         }
     }
+    }
+
+    viewModel.stoppedText?.let { time ->
+        // Has to be answered: there's no timer left to go back to.
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("Save $time?") },
+            confirmButton = { TextButton(onClick = viewModel::saveStopped) { Text("Save") } },
+            dismissButton = { TextButton(onClick = viewModel::discardStopped) { Text("Discard") } },
+        )
     }
 
     if (pickingDate) {
