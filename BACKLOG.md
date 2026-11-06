@@ -23,8 +23,8 @@ For a bug, write what you did, what happened, what you expected, and the date if
 
 - **(you)** Send a test email to support@lockedinlabs.work from another account. It forwards to
   hello.lockedinlabs@gmail.com through Porkbun.
-- **(you)** Play Console: declare the rest timer foreground service (`specialUse`, see docs/PLAY_STORE.md).
-- **(you)** Play Console: listing, data safety, content rating, closed test (12 testers for 14 days).
+- **(you)** Closed test: version 3 was sent to Google for review on 2026-11-06. After approval, get at least 12 testers
+  opted in for 14 days, then apply for production. Tester link: https://play.google.com/apps/testing/work.lockedinlabs.tracker
 - **(you)** Test end to end on a real Google account: sign-in, backup restore from the welcome screen, delete account
   (with and without erasing the phone). Include a backup of holds and cardio.
 

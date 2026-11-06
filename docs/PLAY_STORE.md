@@ -92,6 +92,11 @@ that inbox; the address is in the app, the policy and the listing.
 - **Store listing**: short description (80 chars), full description, 512×512 icon, 1024×500 feature graphic, at
   least 2 phone screenshots (Home, Log, Session plans and the welcome screen show it well).
 
+Store assets live in Play Console. The foreground service demo video is `review/rest-timer.mp4` in the website repo.
+If the timer changes, record it again.
+
+If you add ads or paid features later, update the ads declaration, content rating, data safety and privacy policy.
+
 ## 7. Testing before production
 
 The Dashboard shows whether this applies to your account. New personal developer accounts must run a **closed test
